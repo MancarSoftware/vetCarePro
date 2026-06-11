@@ -1,4 +1,4 @@
-import { getJson } from '@/lib/api';
+import { useAuth } from '@/contexts/auth-context';
 import type { DashboardSummary } from '@/types/dashboard';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -10,13 +10,14 @@ interface DashboardState {
 }
 
 export function useDashboard(): DashboardState {
+  const { request } = useAuth();
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     try {
-      const summary = await getJson<DashboardSummary>('/dashboard/summary');
+      const summary = await request<DashboardSummary>('/dashboard/summary');
       setData(summary);
       setError(null);
     } catch (requestError) {
@@ -28,7 +29,7 @@ export function useDashboard(): DashboardState {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [request]);
 
   useEffect(() => {
     void refresh();
@@ -38,4 +39,3 @@ export function useDashboard(): DashboardState {
 
   return { data, error, isLoading, refresh };
 }
-

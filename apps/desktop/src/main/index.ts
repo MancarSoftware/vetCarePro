@@ -1,5 +1,62 @@
-import { app, BrowserWindow, shell } from 'electron';
-import { join } from 'node:path';
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  safeStorage,
+  shell,
+} from 'electron';
+import {
+  mkdir,
+  readFile,
+  rename,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+
+const REFRESH_TOKEN_FILE = 'session.bin';
+
+function getRefreshTokenPath(): string {
+  return join(app.getPath('userData'), 'auth', REFRESH_TOKEN_FILE);
+}
+
+function registerAuthStorageHandlers(): void {
+  ipcMain.handle('auth:get-refresh-token', async () => {
+    try {
+      if (!safeStorage.isEncryptionAvailable()) {
+        return null;
+      }
+      const encrypted = await readFile(getRefreshTokenPath());
+      return safeStorage.decryptString(encrypted);
+    } catch {
+      return null;
+    }
+  });
+
+  ipcMain.handle(
+    'auth:set-refresh-token',
+    async (_event, refreshToken: string) => {
+      if (!safeStorage.isEncryptionAvailable()) {
+        throw new Error('El cifrado seguro de Windows no está disponible');
+      }
+
+      const tokenPath = getRefreshTokenPath();
+      const temporaryPath = `${tokenPath}.tmp`;
+      await mkdir(dirname(tokenPath), { recursive: true });
+      await writeFile(
+        temporaryPath,
+        safeStorage.encryptString(refreshToken),
+      );
+      await rename(temporaryPath, tokenPath);
+      return true;
+    },
+  );
+
+  ipcMain.handle('auth:clear-refresh-token', async () => {
+    await rm(getRefreshTokenPath(), { force: true });
+    return true;
+  });
+}
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -39,6 +96,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  registerAuthStorageHandlers();
   createWindow();
 
   app.on('activate', () => {
@@ -53,4 +111,3 @@ app.on('window-all-closed', () => {
     app.quit();
   }
 });
-

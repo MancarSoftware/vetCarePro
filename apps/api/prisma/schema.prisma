@@ -141,9 +141,26 @@ model User {
   auditLogs          AuditLog[]          @relation("AuditActor")
   settings           Setting[]           @relation("SettingUpdatedBy")
   backups            BackupRecord[]      @relation("BackupCreatedBy")
+  sessions           Session[]
 
   @@index([status, deletedAt])
   @@map("users")
+}
+
+model Session {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @db.Uuid
+  refreshTokenHash String    @unique @db.VarChar(64)
+  deviceName       String?   @db.VarChar(160)
+  expiresAt        DateTime
+  lastUsedAt       DateTime  @default(now())
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt, expiresAt])
+  @@index([expiresAt])
+  @@map("sessions")
 }
 
 model Role {
@@ -523,4 +540,3 @@ model BackupRecord {
   @@index([createdAt])
   @@map("backup_records")
 }
-

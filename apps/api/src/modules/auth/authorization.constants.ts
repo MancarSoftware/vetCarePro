@@ -1,0 +1,33 @@
+export const ROLE_CODES = {
+  ADMIN: 'ADMIN',
+  VETERINARIAN: 'VETERINARIAN',
+  RECEPTION: 'RECEPTION',
+  CASHIER: 'CASHIER',
+} as const;
+
+export const PERMISSIONS = {
+  DASHBOARD_READ: 'dashboard.read',
+  USERS_READ: 'users.read',
+  USERS_MANAGE: 'users.manage',
+  OWNERS_READ: 'owners.read',
+  OWNERS_MANAGE: 'owners.manage',
+  PETS_READ: 'pets.read',
+  PETS_MANAGE: 'pets.manage',
+  APPOINTMENTS_READ: 'appointments.read',
+  APPOINTMENTS_MANAGE: 'appointments.manage',
+  MEDICAL_READ: 'medical.read',
+  MEDICAL_MANAGE: 'medical.manage',
+  VACCINES_READ: 'vaccines.read',
+  VACCINES_MANAGE: 'vaccines.manage',
+  TREATMENTS_READ: 'treatments.read',
+  TREATMENTS_MANAGE: 'treatments.manage',
+  INVENTORY_READ: 'inventory.read',
+  INVENTORY_MANAGE: 'inventory.manage',
+  PAYMENTS_READ: 'payments.read',
+  PAYMENTS_MANAGE: 'payments.manage',
+  REPORTS_READ: 'reports.read',
+  SETTINGS_MANAGE: 'settings.manage',
+  BACKUPS_MANAGE: 'backups.manage',
+  AUDIT_READ: 'audit.read',
+} as const;
+

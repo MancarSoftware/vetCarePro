@@ -2,6 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useDashboard } from '@/hooks/use-dashboard';
+import { useAuth } from '@/contexts/auth-context';
 import { cn } from '@/lib/utils';
 import type {
   AgendaItem,
@@ -394,6 +395,7 @@ function getMetricCards(metrics: DashboardMetrics): MetricCardProps[] {
 }
 
 export function DashboardPage() {
+  const { user } = useAuth();
   const { data, error, isLoading, refresh } = useDashboard();
   const now = new Date();
 
@@ -427,7 +429,7 @@ export function DashboardPage() {
       <div className="mb-5 flex items-end justify-between">
         <div>
           <h1 className="text-[28px] font-bold tracking-[-0.04em] text-slate-950">
-            Buenos días, equipo VetCare
+            Buenos días, {user?.firstName || 'equipo VetCare'}
           </h1>
           <p className="mt-1 text-sm text-slate-500">
             Así va la actividad de tu clínica hoy,{' '}

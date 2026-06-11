@@ -3,16 +3,17 @@ import { RequirePermissions } from '../../common/decorators/require-permissions.
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { PERMISSIONS } from '../auth/authorization.constants';
-import { DashboardService } from './dashboard.service';
+import { RolesService } from './roles.service';
 
-@Controller('dashboard')
+@Controller('roles')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
-@RequirePermissions(PERMISSIONS.DASHBOARD_READ)
-export class DashboardController {
-  constructor(private readonly dashboardService: DashboardService) {}
+export class RolesController {
+  constructor(private readonly rolesService: RolesService) {}
 
-  @Get('summary')
-  getSummary() {
-    return this.dashboardService.getSummary();
+  @Get()
+  @RequirePermissions(PERMISSIONS.USERS_READ)
+  findAll() {
+    return this.rolesService.findAll();
   }
 }
+

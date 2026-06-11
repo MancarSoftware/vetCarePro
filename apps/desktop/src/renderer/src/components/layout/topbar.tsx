@@ -1,6 +1,22 @@
-import { Bell, ChevronDown, Search, UserRound } from 'lucide-react';
+import type { AuthUser } from '@/types/auth';
+import { Bell, LogOut, Search, UserRound } from 'lucide-react';
 
-export function Topbar() {
+const roleLabels: Record<string, string> = {
+  ADMIN: 'Administrador',
+  VETERINARIAN: 'Veterinario',
+  RECEPTION: 'Recepción',
+  CASHIER: 'Caja',
+};
+
+export function Topbar({
+  user,
+  onLogout,
+}: {
+  user: AuthUser;
+  onLogout: () => Promise<void>;
+}) {
+  const primaryRole = roleLabels[user.roles[0]] ?? user.roles[0] ?? 'Usuario';
+
   return (
     <header className="sticky top-0 z-20 flex h-[76px] items-center border-b border-slate-200 bg-white/95 px-7 backdrop-blur">
       <div className="relative mx-auto w-full max-w-2xl">
@@ -27,13 +43,22 @@ export function Topbar() {
         <div className="grid size-11 place-items-center rounded-full bg-gradient-to-br from-teal-100 to-cyan-100 text-teal-700">
           <UserRound className="size-5" />
         </div>
-        <div className="hidden min-w-32 xl:block">
-          <p className="text-sm font-bold text-slate-800">Equipo VetCare</p>
-          <p className="text-xs text-slate-500">Configuración inicial</p>
+        <div className="hidden min-w-36 xl:block">
+          <p className="text-sm font-bold text-slate-800">
+            {user.firstName} {user.lastName}
+          </p>
+          <p className="text-xs text-slate-500">{primaryRole}</p>
         </div>
-        <ChevronDown className="size-4 text-slate-500" />
+        <button
+          type="button"
+          onClick={() => void onLogout()}
+          title="Cerrar sesión"
+          aria-label="Cerrar sesión"
+          className="grid size-9 place-items-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+        >
+          <LogOut className="size-4" />
+        </button>
       </div>
     </header>
   );
 }
-
