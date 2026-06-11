@@ -1,0 +1,526 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  LOCKED
+}
+
+enum PetSex {
+  MALE
+  FEMALE
+  UNKNOWN
+}
+
+enum PetStatus {
+  ACTIVE
+  INACTIVE
+  DECEASED
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum AppointmentType {
+  GENERAL_CONSULTATION
+  VACCINATION
+  FOLLOW_UP
+  SURGERY
+  GROOMING
+  EMERGENCY
+  DEWORMING
+  OTHER
+}
+
+enum MedicalRecordType {
+  CONSULTATION
+  VACCINATION
+  TREATMENT
+  FOLLOW_UP
+  SURGERY
+  LAB_RESULT
+  OTHER
+}
+
+enum TreatmentStatus {
+  ACTIVE
+  COMPLETED
+  SUSPENDED
+  FOLLOW_UP
+}
+
+enum PreventiveCareStatus {
+  APPLIED
+  PENDING
+  OVERDUE
+  UPCOMING
+}
+
+enum MediaCategory {
+  PET_PROFILE
+  WOUND
+  RADIOGRAPH
+  DOCUMENT
+  PRESCRIPTION
+  EVOLUTION
+  OTHER
+}
+
+enum InventoryMovementType {
+  PURCHASE
+  SALE
+  ADJUSTMENT_IN
+  ADJUSTMENT_OUT
+  CLINICAL_USE
+  RETURN
+  EXPIRED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CARD
+  OTHER
+}
+
+enum PaymentStatus {
+  PAID
+  PENDING
+  PARTIAL
+  VOIDED
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  BACKUP
+  RESTORE
+}
+
+enum BackupStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+model User {
+  id                 String              @id @default(uuid()) @db.Uuid
+  firstName          String              @db.VarChar(80)
+  lastName           String              @db.VarChar(80)
+  email              String              @unique @db.VarChar(160)
+  passwordHash       String              @db.VarChar(255)
+  status             UserStatus          @default(ACTIVE)
+  lastLoginAt        DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  deletedAt          DateTime?
+  roles              UserRole[]
+  appointments       Appointment[]       @relation("AppointmentVeterinarian")
+  medicalRecords     MedicalRecord[]     @relation("MedicalRecordVeterinarian")
+  treatments         Treatment[]         @relation("TreatmentVeterinarian")
+  vaccines           Vaccine[]           @relation("VaccineVeterinarian")
+  dewormings         Deworming[]         @relation("DewormingVeterinarian")
+  mediaFiles         MediaFile[]         @relation("MediaUploadedBy")
+  inventoryMovements InventoryMovement[] @relation("InventoryMovementUser")
+  payments           Payment[]           @relation("PaymentCreatedBy")
+  auditLogs          AuditLog[]          @relation("AuditActor")
+  settings           Setting[]           @relation("SettingUpdatedBy")
+  backups            BackupRecord[]      @relation("BackupCreatedBy")
+
+  @@index([status, deletedAt])
+  @@map("users")
+}
+
+model Role {
+  id          String           @id @default(uuid()) @db.Uuid
+  code        String           @unique @db.VarChar(50)
+  name        String           @db.VarChar(80)
+  description String?          @db.VarChar(255)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  users       UserRole[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String           @id @default(uuid()) @db.Uuid
+  code        String           @unique @db.VarChar(100)
+  description String?          @db.VarChar(255)
+  createdAt   DateTime         @default(now())
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+model UserRole {
+  userId     String   @db.Uuid
+  roleId     String   @db.Uuid
+  assignedAt DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  roleId      String     @db.Uuid
+  permissionId String    @db.Uuid
+  role        Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission  Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model Owner {
+  id           String        @id @default(uuid()) @db.Uuid
+  firstName    String        @db.VarChar(100)
+  lastName     String        @db.VarChar(100)
+  nationalId   String?       @unique @db.VarChar(30)
+  phone        String        @db.VarChar(30)
+  email        String?       @db.VarChar(160)
+  address      String?       @db.VarChar(255)
+  notes        String?       @db.Text
+  registeredAt DateTime      @default(now())
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  deletedAt    DateTime?
+  pets         Pet[]
+  appointments Appointment[]
+  payments     Payment[]
+
+  @@index([lastName, firstName])
+  @@index([phone])
+  @@index([deletedAt])
+  @@map("owners")
+}
+
+model Pet {
+  id                   String          @id @default(uuid()) @db.Uuid
+  ownerId              String          @db.Uuid
+  name                 String          @db.VarChar(100)
+  species              String          @db.VarChar(80)
+  breed                String?         @db.VarChar(120)
+  sex                  PetSex          @default(UNKNOWN)
+  birthDate            DateTime?       @db.Date
+  approximateAgeMonths Int?
+  weightKg             Decimal?        @db.Decimal(7, 2)
+  color                String?         @db.VarChar(100)
+  photoPath            String?         @db.VarChar(500)
+  status               PetStatus       @default(ACTIVE)
+  notes                String?         @db.Text
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  deletedAt            DateTime?
+  owner                Owner           @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  appointments         Appointment[]
+  medicalRecords       MedicalRecord[]
+  treatments           Treatment[]
+  vaccines             Vaccine[]
+  dewormings           Deworming[]
+  mediaFiles           MediaFile[]
+
+  @@index([ownerId, deletedAt])
+  @@index([name])
+  @@index([status, deletedAt])
+  @@map("pets")
+}
+
+model Appointment {
+  id             String            @id @default(uuid()) @db.Uuid
+  petId          String            @db.Uuid
+  ownerId        String            @db.Uuid
+  veterinarianId String?           @db.Uuid
+  type           AppointmentType
+  status         AppointmentStatus @default(PENDING)
+  startsAt       DateTime
+  endsAt         DateTime
+  reason         String?           @db.VarChar(255)
+  notes          String?           @db.Text
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  deletedAt      DateTime?
+  pet            Pet               @relation(fields: [petId], references: [id], onDelete: Restrict)
+  owner          Owner             @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  veterinarian   User?             @relation("AppointmentVeterinarian", fields: [veterinarianId], references: [id], onDelete: SetNull)
+  medicalRecords MedicalRecord[]
+  payments       Payment[]
+
+  @@index([startsAt, status])
+  @@index([veterinarianId, startsAt])
+  @@index([petId])
+  @@index([deletedAt])
+  @@map("appointments")
+}
+
+model MedicalRecord {
+  id             String            @id @default(uuid()) @db.Uuid
+  petId          String            @db.Uuid
+  appointmentId  String?           @db.Uuid
+  veterinarianId String            @db.Uuid
+  type           MedicalRecordType @default(CONSULTATION)
+  occurredAt     DateTime          @default(now())
+  complaint      String?           @db.Text
+  symptoms       String?           @db.Text
+  diagnosis      String?           @db.Text
+  treatmentPlan  String?           @db.Text
+  medications    Json?
+  notes          String?           @db.Text
+  nextReviewAt   DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  deletedAt      DateTime?
+  pet            Pet               @relation(fields: [petId], references: [id], onDelete: Restrict)
+  appointment    Appointment?      @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  veterinarian   User              @relation("MedicalRecordVeterinarian", fields: [veterinarianId], references: [id], onDelete: Restrict)
+  treatments     Treatment[]
+  vaccines       Vaccine[]
+  dewormings     Deworming[]
+  mediaFiles     MediaFile[]
+
+  @@index([petId, occurredAt])
+  @@index([veterinarianId, occurredAt])
+  @@index([deletedAt])
+  @@map("medical_records")
+}
+
+model Treatment {
+  id              String          @id @default(uuid()) @db.Uuid
+  petId           String          @db.Uuid
+  medicalRecordId String?         @db.Uuid
+  veterinarianId  String          @db.Uuid
+  diagnosis       String          @db.Text
+  instructions    String          @db.Text
+  medications     Json?
+  dosage          String?         @db.VarChar(255)
+  frequency       String?         @db.VarChar(255)
+  durationDays    Int?
+  startDate       DateTime        @db.Date
+  endDate         DateTime?       @db.Date
+  status          TreatmentStatus @default(ACTIVE)
+  notes           String?         @db.Text
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  deletedAt       DateTime?
+  pet             Pet             @relation(fields: [petId], references: [id], onDelete: Restrict)
+  medicalRecord   MedicalRecord?  @relation(fields: [medicalRecordId], references: [id], onDelete: SetNull)
+  veterinarian    User            @relation("TreatmentVeterinarian", fields: [veterinarianId], references: [id], onDelete: Restrict)
+  mediaFiles      MediaFile[]
+
+  @@index([petId, status])
+  @@index([status, endDate])
+  @@index([deletedAt])
+  @@map("treatments")
+}
+
+model Vaccine {
+  id              String               @id @default(uuid()) @db.Uuid
+  petId           String               @db.Uuid
+  medicalRecordId String?              @db.Uuid
+  veterinarianId  String               @db.Uuid
+  name            String               @db.VarChar(160)
+  manufacturer    String?              @db.VarChar(160)
+  batchNumber     String?              @db.VarChar(100)
+  appliedAt       DateTime             @db.Date
+  nextDueDate     DateTime?            @db.Date
+  status          PreventiveCareStatus @default(APPLIED)
+  notes           String?              @db.Text
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  deletedAt       DateTime?
+  pet             Pet                  @relation(fields: [petId], references: [id], onDelete: Restrict)
+  medicalRecord   MedicalRecord?       @relation(fields: [medicalRecordId], references: [id], onDelete: SetNull)
+  veterinarian    User                 @relation("VaccineVeterinarian", fields: [veterinarianId], references: [id], onDelete: Restrict)
+
+  @@index([nextDueDate, status])
+  @@index([petId, appliedAt])
+  @@index([deletedAt])
+  @@map("vaccines")
+}
+
+model Deworming {
+  id              String               @id @default(uuid()) @db.Uuid
+  petId           String               @db.Uuid
+  medicalRecordId String?              @db.Uuid
+  veterinarianId  String               @db.Uuid
+  medication      String               @db.VarChar(160)
+  appliedAt       DateTime             @db.Date
+  nextDueDate     DateTime?            @db.Date
+  weightKg        Decimal?             @db.Decimal(7, 2)
+  dosage          String?              @db.VarChar(120)
+  status          PreventiveCareStatus @default(APPLIED)
+  notes           String?              @db.Text
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  deletedAt       DateTime?
+  pet             Pet                  @relation(fields: [petId], references: [id], onDelete: Restrict)
+  medicalRecord   MedicalRecord?       @relation(fields: [medicalRecordId], references: [id], onDelete: SetNull)
+  veterinarian    User                 @relation("DewormingVeterinarian", fields: [veterinarianId], references: [id], onDelete: Restrict)
+
+  @@index([nextDueDate, status])
+  @@index([petId, appliedAt])
+  @@index([deletedAt])
+  @@map("dewormings")
+}
+
+model MediaFile {
+  id              String        @id @default(uuid()) @db.Uuid
+  petId           String        @db.Uuid
+  medicalRecordId String?       @db.Uuid
+  treatmentId     String?       @db.Uuid
+  uploadedById    String        @db.Uuid
+  filePath        String        @unique @db.VarChar(700)
+  originalName    String        @db.VarChar(255)
+  storedName      String        @db.VarChar(255)
+  mimeType        String        @db.VarChar(120)
+  sizeBytes       BigInt
+  category        MediaCategory @default(OTHER)
+  tags            String[]
+  createdAt       DateTime      @default(now())
+  deletedAt       DateTime?
+  pet             Pet           @relation(fields: [petId], references: [id], onDelete: Restrict)
+  medicalRecord   MedicalRecord? @relation(fields: [medicalRecordId], references: [id], onDelete: SetNull)
+  treatment       Treatment?    @relation(fields: [treatmentId], references: [id], onDelete: SetNull)
+  uploadedBy      User          @relation("MediaUploadedBy", fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@index([petId, category])
+  @@index([medicalRecordId])
+  @@index([deletedAt])
+  @@map("media_files")
+}
+
+model InventoryProduct {
+  id              String              @id @default(uuid()) @db.Uuid
+  sku             String?             @unique @db.VarChar(80)
+  name            String              @db.VarChar(180)
+  category        String              @db.VarChar(120)
+  currentStock    Decimal             @default(0) @db.Decimal(12, 3)
+  minimumStock    Decimal             @default(0) @db.Decimal(12, 3)
+  unit            String              @default("unidad") @db.VarChar(40)
+  purchasePrice   Decimal?            @db.Decimal(12, 2)
+  salePrice       Decimal?            @db.Decimal(12, 2)
+  expirationDate  DateTime?           @db.Date
+  supplier        String?             @db.VarChar(180)
+  isActive        Boolean             @default(true)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  deletedAt       DateTime?
+  movements       InventoryMovement[]
+
+  @@index([name])
+  @@index([category, isActive])
+  @@index([expirationDate])
+  @@index([deletedAt])
+  @@map("inventory_products")
+}
+
+model InventoryMovement {
+  id            String                @id @default(uuid()) @db.Uuid
+  productId     String                @db.Uuid
+  performedById String                @db.Uuid
+  type          InventoryMovementType
+  quantity      Decimal               @db.Decimal(12, 3)
+  unitCost      Decimal?              @db.Decimal(12, 2)
+  referenceType String?               @db.VarChar(80)
+  referenceId   String?               @db.VarChar(80)
+  notes         String?               @db.Text
+  createdAt     DateTime              @default(now())
+  product       InventoryProduct      @relation(fields: [productId], references: [id], onDelete: Restrict)
+  performedBy   User                  @relation("InventoryMovementUser", fields: [performedById], references: [id], onDelete: Restrict)
+
+  @@index([productId, createdAt])
+  @@index([type, createdAt])
+  @@map("inventory_movements")
+}
+
+model Payment {
+  id             String        @id @default(uuid()) @db.Uuid
+  ownerId        String        @db.Uuid
+  appointmentId  String?       @db.Uuid
+  createdById    String        @db.Uuid
+  reference      String?       @unique @db.VarChar(80)
+  description    String        @db.VarChar(255)
+  amount         Decimal       @db.Decimal(12, 2)
+  method         PaymentMethod
+  status         PaymentStatus @default(PENDING)
+  paidAt         DateTime?
+  dueAt          DateTime?
+  notes          String?       @db.Text
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  deletedAt      DateTime?
+  owner          Owner         @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  appointment    Appointment?  @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  createdBy      User          @relation("PaymentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([status, paidAt])
+  @@index([ownerId, createdAt])
+  @@index([appointmentId])
+  @@index([deletedAt])
+  @@map("payments")
+}
+
+model AuditLog {
+  id         String      @id @default(uuid()) @db.Uuid
+  actorId    String?     @db.Uuid
+  action     AuditAction
+  entityType String      @db.VarChar(100)
+  entityId   String?     @db.VarChar(100)
+  changes    Json?
+  ipAddress  String?     @db.VarChar(64)
+  createdAt  DateTime    @default(now())
+  actor      User?       @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model Setting {
+  id          String   @id @default(uuid()) @db.Uuid
+  key         String   @unique @db.VarChar(120)
+  value       Json
+  description String?  @db.VarChar(255)
+  updatedById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  updatedBy   User?    @relation("SettingUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@map("settings")
+}
+
+model BackupRecord {
+  id           String       @id @default(uuid()) @db.Uuid
+  status       BackupStatus @default(PENDING)
+  databasePath String?      @db.VarChar(700)
+  filesPath    String?      @db.VarChar(700)
+  sizeBytes    BigInt?
+  errorMessage String?      @db.Text
+  createdById  String?      @db.Uuid
+  createdAt    DateTime     @default(now())
+  completedAt  DateTime?
+  createdBy    User?        @relation("BackupCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@map("backup_records")
+}
+
