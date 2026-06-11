@@ -98,6 +98,16 @@ export class AuthService {
       },
     );
 
+    await this.prisma.auditLog.create({
+      data: {
+        actorId: user.id,
+        action: 'CREATE',
+        entityType: 'SystemAdministrator',
+        entityId: user.id,
+        changes: { initializedSystem: true },
+      },
+    });
+
     return this.createSession(user, dto.deviceName);
   }
 
@@ -113,6 +123,16 @@ export class AuthService {
       user.status !== 'ACTIVE' ||
       !(await this.passwordService.verify(dto.password, user.passwordHash))
     ) {
+      await this.prisma.auditLog.create({
+        data: {
+          action: 'LOGIN',
+          entityType: 'Authentication',
+          changes: {
+            email: dto.email.trim().toLowerCase(),
+            success: false,
+          },
+        },
+      });
       throw new UnauthorizedException('Correo o contraseña incorrectos');
     }
 
@@ -121,7 +141,19 @@ export class AuthService {
       data: { lastLoginAt: new Date() },
     });
 
-    return this.createSession(user, dto.deviceName);
+    const response = await this.createSession(user, dto.deviceName);
+    await this.prisma.auditLog.create({
+      data: {
+        actorId: user.id,
+        action: 'LOGIN',
+        entityType: 'Session',
+        changes: {
+          deviceName: dto.deviceName.trim(),
+          success: true,
+        },
+      },
+    });
+    return response;
   }
 
   async refresh(refreshToken: string): Promise<AuthResponse> {
@@ -164,12 +196,30 @@ export class AuthService {
   }
 
   async logout(refreshToken: string): Promise<{ success: true }> {
-    await this.prisma.session.updateMany({
-      where: {
-        refreshTokenHash: this.hashRefreshToken(refreshToken),
-        revokedAt: null,
-      },
-      data: { revokedAt: new Date() },
+    const refreshTokenHash = this.hashRefreshToken(refreshToken);
+    const session = await this.prisma.session.findUnique({
+      where: { refreshTokenHash },
+      select: { id: true, userId: true },
+    });
+
+    await this.prisma.$transaction(async (transaction) => {
+      await transaction.session.updateMany({
+        where: {
+          refreshTokenHash,
+          revokedAt: null,
+        },
+        data: { revokedAt: new Date() },
+      });
+      if (session) {
+        await transaction.auditLog.create({
+          data: {
+            actorId: session.userId,
+            action: 'LOGOUT',
+            entityType: 'Session',
+            entityId: session.id,
+          },
+        });
+      }
     });
 
     return { success: true };

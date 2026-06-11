@@ -3,6 +3,7 @@ import {
   BrowserWindow,
   ipcMain,
   safeStorage,
+  screen,
   shell,
 } from 'electron';
 import {
@@ -59,9 +60,11 @@ function registerAuthStorageHandlers(): void {
 }
 
 function createWindow(): void {
+  const { width: availableWidth, height: availableHeight } =
+    screen.getPrimaryDisplay().workAreaSize;
   const mainWindow = new BrowserWindow({
-    width: 1680,
-    height: 960,
+    width: Math.min(1680, availableWidth),
+    height: Math.min(960, availableHeight),
     minWidth: 1180,
     minHeight: 720,
     show: false,

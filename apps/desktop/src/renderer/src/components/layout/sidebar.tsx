@@ -14,28 +14,51 @@ import {
   UsersRound,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import type { AuthUser } from '@/types/auth';
+
+export type AppPage = 'dashboard' | 'users';
 
 interface NavigationItem {
+  id: AppPage | null;
   label: string;
   icon: LucideIcon;
-  active?: boolean;
+  permission?: string;
 }
 
 const navigation: NavigationItem[] = [
-  { label: 'Dashboard', icon: LayoutDashboard, active: true },
-  { label: 'Mascotas', icon: PawPrint },
-  { label: 'Dueños', icon: UsersRound },
-  { label: 'Citas', icon: CalendarDays },
-  { label: 'Historial', icon: ClipboardPlus },
-  { label: 'Vacunas', icon: Syringe },
-  { label: 'Tratamientos', icon: HeartHandshake },
-  { label: 'Pagos', icon: CreditCard },
-  { label: 'Inventario', icon: Boxes },
-  { label: 'Reportes', icon: BarChart3 },
-  { label: 'Configuración', icon: Settings },
+  {
+    id: 'dashboard',
+    label: 'Dashboard',
+    icon: LayoutDashboard,
+    permission: 'dashboard.read',
+  },
+  { id: null, label: 'Mascotas', icon: PawPrint },
+  { id: null, label: 'Dueños', icon: UsersRound },
+  { id: null, label: 'Citas', icon: CalendarDays },
+  { id: null, label: 'Historial', icon: ClipboardPlus },
+  { id: null, label: 'Vacunas', icon: Syringe },
+  { id: null, label: 'Tratamientos', icon: HeartHandshake },
+  { id: null, label: 'Pagos', icon: CreditCard },
+  { id: null, label: 'Inventario', icon: Boxes },
+  { id: null, label: 'Reportes', icon: BarChart3 },
+  {
+    id: 'users',
+    label: 'Usuarios',
+    icon: UserRound,
+    permission: 'users.read',
+  },
+  { id: null, label: 'Configuración', icon: Settings },
 ];
 
-export function Sidebar() {
+export function Sidebar({
+  currentPage,
+  onNavigate,
+  user,
+}: {
+  currentPage: AppPage;
+  onNavigate: (page: AppPage) => void;
+  user: AuthUser;
+}) {
   return (
     <aside className="fixed inset-y-0 left-0 z-30 flex w-[246px] flex-col border-r border-slate-200 bg-white px-3 py-4">
       <div className="flex h-16 items-center gap-3 px-4">
@@ -48,12 +71,21 @@ export function Sidebar() {
       </div>
 
       <nav className="mt-4 space-y-1">
-        {navigation.map(({ label, icon: Icon, active }) => (
+        {navigation.map(({ id, label, icon: Icon, permission }) => {
+          const available =
+            id !== null &&
+            (!permission || user.permissions.includes(permission));
+          const active = id === currentPage;
+
+          return (
           <button
             key={label}
             type="button"
-            disabled={!active}
-            title={active ? label : `${label}: disponible en una próxima fase`}
+            disabled={!available}
+            onClick={() => id && onNavigate(id)}
+            title={
+              available ? label : `${label}: disponible en una próxima fase`
+            }
             className={
               active
                 ? 'flex h-11 w-full items-center gap-3 rounded-xl bg-gradient-to-r from-teal-600 to-cyan-600 px-4 text-sm font-semibold text-white shadow-md shadow-teal-600/15'
@@ -63,7 +95,8 @@ export function Sidebar() {
             <Icon className="size-5" strokeWidth={1.8} />
             {label}
           </button>
-        ))}
+          );
+        })}
       </nav>
 
       <div className="mt-auto">
@@ -94,4 +127,3 @@ export function Sidebar() {
     </aside>
   );
 }
-

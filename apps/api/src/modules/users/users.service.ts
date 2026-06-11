@@ -1,10 +1,12 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PasswordService } from '../../security/password.service';
+import { ROLE_CODES } from '../auth/authorization.constants';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserRolesDto } from './dto/update-user-roles.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
@@ -39,7 +41,7 @@ export class UsersService {
     });
   }
 
-  async create(dto: CreateUserDto) {
+  async create(actorId: string, dto: CreateUserDto) {
     const email = dto.email.trim().toLowerCase();
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) {
@@ -49,34 +51,66 @@ export class UsersService {
     const roles = await this.getRoles(dto.roleCodes);
     const passwordHash = await this.passwordService.hash(dto.password);
 
-    return this.prisma.user.create({
-      data: {
-        firstName: dto.firstName.trim(),
-        lastName: dto.lastName.trim(),
-        email,
-        passwordHash,
-        roles: {
-          createMany: {
-            data: roles.map(({ id }) => ({ roleId: id })),
+    return this.prisma.$transaction(async (transaction) => {
+      const user = await transaction.user.create({
+        data: {
+          firstName: dto.firstName.trim(),
+          lastName: dto.lastName.trim(),
+          email,
+          passwordHash,
+          roles: {
+            createMany: {
+              data: roles.map(({ id }) => ({ roleId: id })),
+            },
           },
         },
-      },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        status: true,
-        roles: {
-          select: { role: { select: { code: true, name: true } } },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          status: true,
+          roles: {
+            select: { role: { select: { code: true, name: true } } },
+          },
         },
-      },
+      });
+      await transaction.auditLog.create({
+        data: {
+          actorId,
+          action: 'CREATE',
+          entityType: 'User',
+          entityId: user.id,
+          changes: {
+            email,
+            roleCodes: roles.map(({ code }) => code),
+          },
+        },
+      });
+      return user;
     });
   }
 
-  async updateRoles(userId: string, dto: UpdateUserRolesDto) {
-    await this.ensureUser(userId);
+  async updateRoles(
+    actorId: string,
+    userId: string,
+    dto: UpdateUserRolesDto,
+  ) {
+    const user = await this.getUserWithRoles(userId);
     const roles = await this.getRoles(dto.roleCodes);
+    const nextRoleCodes = roles.map(({ code }) => code);
+    const isRemovingAdmin =
+      user.roles.some(({ role }) => role.code === ROLE_CODES.ADMIN) &&
+      !nextRoleCodes.includes(ROLE_CODES.ADMIN);
+
+    if (actorId === userId && isRemovingAdmin) {
+      throw new BadRequestException(
+        'No puedes quitar tu propio rol de administrador',
+      );
+    }
+    if (isRemovingAdmin) {
+      await this.ensureAnotherActiveAdmin(userId);
+    }
 
     await this.prisma.$transaction([
       this.prisma.userRole.deleteMany({ where: { userId } }),
@@ -87,13 +121,38 @@ export class UsersService {
         where: { userId, revokedAt: null },
         data: { revokedAt: new Date() },
       }),
+      this.prisma.auditLog.create({
+        data: {
+          actorId,
+          action: 'UPDATE',
+          entityType: 'UserRoles',
+          entityId: userId,
+          changes: { roleCodes: nextRoleCodes },
+        },
+      }),
     ]);
 
     return { success: true };
   }
 
-  async updateStatus(userId: string, dto: UpdateUserStatusDto) {
-    await this.ensureUser(userId);
+  async updateStatus(
+    actorId: string,
+    userId: string,
+    dto: UpdateUserStatusDto,
+  ) {
+    const user = await this.getUserWithRoles(userId);
+    if (actorId === userId && dto.status !== 'ACTIVE') {
+      throw new BadRequestException(
+        'No puedes desactivar o bloquear tu propia cuenta',
+      );
+    }
+    if (
+      dto.status !== 'ACTIVE' &&
+      user.roles.some(({ role }) => role.code === ROLE_CODES.ADMIN)
+    ) {
+      await this.ensureAnotherActiveAdmin(userId);
+    }
+
     await this.prisma.$transaction([
       this.prisma.user.update({
         where: { id: userId },
@@ -102,6 +161,15 @@ export class UsersService {
       this.prisma.session.updateMany({
         where: { userId, revokedAt: null },
         data: { revokedAt: new Date() },
+      }),
+      this.prisma.auditLog.create({
+        data: {
+          actorId,
+          action: 'UPDATE',
+          entityType: 'UserStatus',
+          entityId: userId,
+          changes: { status: dto.status },
+        },
       }),
     ]);
 
@@ -122,14 +190,38 @@ export class UsersService {
     return roles;
   }
 
-  private async ensureUser(userId: string): Promise<void> {
+  private async getUserWithRoles(userId: string) {
     const user = await this.prisma.user.findFirst({
       where: { id: userId, deletedAt: null },
-      select: { id: true },
+      select: {
+        id: true,
+        status: true,
+        roles: {
+          select: { role: { select: { code: true } } },
+        },
+      },
     });
     if (!user) {
       throw new NotFoundException('El usuario no existe');
     }
+    return user;
+  }
+
+  private async ensureAnotherActiveAdmin(excludedUserId: string) {
+    const activeAdmins = await this.prisma.user.count({
+      where: {
+        id: { not: excludedUserId },
+        status: 'ACTIVE',
+        deletedAt: null,
+        roles: {
+          some: { role: { code: ROLE_CODES.ADMIN } },
+        },
+      },
+    });
+    if (activeAdmins === 0) {
+      throw new ConflictException(
+        'Debe existir al menos un administrador activo',
+      );
+    }
   }
 }
-

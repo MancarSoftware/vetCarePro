@@ -45,6 +45,7 @@ export function LoginPage() {
             <Mail className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
             <input
               type="email"
+              autoFocus
               autoComplete="username"
               required
               value={email}
@@ -87,4 +88,3 @@ export function LoginPage() {
     </AuthShell>
   );
 }
-
