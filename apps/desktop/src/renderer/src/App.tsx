@@ -7,9 +7,18 @@ import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { DashboardPage } from '@/pages/dashboard-page';
 import { LoadingPage } from '@/pages/loading-page';
 import { LoginPage } from '@/pages/login-page';
+import { OwnersPage } from '@/pages/owners-page';
+import { PetsPage } from '@/pages/pets-page';
 import { SetupPage } from '@/pages/setup-page';
 import { UsersPage } from '@/pages/users-page';
 import { useState } from 'react';
+
+const pages = {
+  dashboard: DashboardPage,
+  pets: PetsPage,
+  owners: OwnersPage,
+  users: UsersPage,
+};
 
 function AuthenticatedApp() {
   const { user, logout } = useAuth();
@@ -18,6 +27,8 @@ function AuthenticatedApp() {
   if (!user) {
     return null;
   }
+
+  const CurrentPage = pages[currentPage];
 
   return (
     <div className="min-h-screen bg-[#f7f9fb] text-slate-900">
@@ -29,7 +40,7 @@ function AuthenticatedApp() {
       <div className="min-h-screen pl-[246px]">
         <Topbar user={user} onLogout={logout} />
         <main className="mx-auto w-full max-w-[1740px] px-7 pb-8 pt-6">
-          {currentPage === 'dashboard' ? <DashboardPage /> : <UsersPage />}
+          <CurrentPage />
         </main>
       </div>
     </div>

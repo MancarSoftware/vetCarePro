@@ -37,9 +37,34 @@ interface SetupStatus {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+const browserBridge: Window['vetcare'] = {
+  platform: 'win32',
+  versions: {
+    electron: 'browser-preview',
+    chrome: 'browser-preview',
+  },
+  auth: {
+    getRefreshToken: async () =>
+      window.sessionStorage.getItem('vetcare.refreshToken'),
+    setRefreshToken: async (refreshToken) => {
+      window.sessionStorage.setItem('vetcare.refreshToken', refreshToken);
+      return true;
+    },
+    clearRefreshToken: async () => {
+      window.sessionStorage.removeItem('vetcare.refreshToken');
+      return true;
+    },
+  },
+};
+
+function getDesktopBridge(): Window['vetcare'] {
+  return window.vetcare ?? browserBridge;
+}
+
 function getDeviceName(): string {
+  const bridge = getDesktopBridge();
   const platform =
-    window.vetcare.platform === 'win32' ? 'Windows' : window.vetcare.platform;
+    bridge.platform === 'win32' ? 'Windows' : bridge.platform;
   return `VetCare Pro Desktop · ${platform}`;
 }
 
@@ -50,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshPromiseRef = useRef<Promise<string> | null>(null);
 
   const applyAuthResponse = useCallback(async (response: AuthResponse) => {
-    await window.vetcare.auth.setRefreshToken(response.refreshToken);
+    await getDesktopBridge().auth.setRefreshToken(response.refreshToken);
     accessTokenRef.current = response.accessToken;
     setUser(response.user);
     setStatus('authenticated');
@@ -59,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const clearSession = useCallback(async () => {
     accessTokenRef.current = null;
     setUser(null);
-    await window.vetcare.auth.clearRefreshToken();
+    await getDesktopBridge().auth.clearRefreshToken();
     setStatus('unauthenticated');
   }, []);
 
@@ -69,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     refreshPromiseRef.current = (async () => {
-      const refreshToken = await window.vetcare.auth.getRefreshToken();
+      const refreshToken = await getDesktopBridge().auth.getRefreshToken();
       if (!refreshToken) {
         throw new ApiError('No hay una sesión guardada', 401);
       }
@@ -78,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         method: 'POST',
         body: { refreshToken },
       });
-      await window.vetcare.auth.setRefreshToken(response.refreshToken);
+      await getDesktopBridge().auth.setRefreshToken(response.refreshToken);
       accessTokenRef.current = response.accessToken;
       setUser(response.user);
       setStatus('authenticated');
@@ -151,7 +176,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(async () => {
-    const refreshToken = await window.vetcare.auth.getRefreshToken();
+    const refreshToken = await getDesktopBridge().auth.getRefreshToken();
     if (refreshToken) {
       try {
         await apiRequest('/auth/logout', {
@@ -180,7 +205,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await refreshSession();
       } catch {
         if (!active) return;
-        await window.vetcare.auth.clearRefreshToken();
+        await getDesktopBridge().auth.clearRefreshToken();
         setStatus('unauthenticated');
       }
     };
@@ -206,4 +231,3 @@ export function useAuth(): AuthContextValue {
   }
   return context;
 }
-
