@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './modules/auth/auth.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { HealthModule } from './modules/health/health.module';
+import { MedicalRecordsModule } from './modules/medical-records/medical-records.module';
 import { OwnersModule } from './modules/owners/owners.module';
 import { PetsModule } from './modules/pets/pets.module';
 import { RolesModule } from './modules/roles/roles.module';
@@ -24,6 +25,7 @@ import { SecurityModule } from './security/security.module';
     RolesModule,
     OwnersModule,
     PetsModule,
+    MedicalRecordsModule,
     DashboardModule,
   ],
 })

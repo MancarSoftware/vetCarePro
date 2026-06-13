@@ -16,7 +16,12 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import type { AuthUser } from '@/types/auth';
 
-export type AppPage = 'dashboard' | 'pets' | 'owners' | 'users';
+export type AppPage =
+  | 'dashboard'
+  | 'pets'
+  | 'owners'
+  | 'history'
+  | 'users';
 
 interface NavigationItem {
   id: AppPage | null;
@@ -45,7 +50,12 @@ const navigation: NavigationItem[] = [
     permission: 'owners.read',
   },
   { id: null, label: 'Citas', icon: CalendarDays },
-  { id: null, label: 'Historial', icon: ClipboardPlus },
+  {
+    id: 'history',
+    label: 'Historial',
+    icon: ClipboardPlus,
+    permission: 'medical.read',
+  },
   { id: null, label: 'Vacunas', icon: Syringe },
   { id: null, label: 'Tratamientos', icon: HeartHandshake },
   { id: null, label: 'Pagos', icon: CreditCard },

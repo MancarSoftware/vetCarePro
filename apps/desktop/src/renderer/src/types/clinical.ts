@@ -58,3 +58,55 @@ export interface Pet {
   updatedAt: string;
   owner: PetOwner;
 }
+
+export type MedicalRecordType =
+  | 'CONSULTATION'
+  | 'VACCINATION'
+  | 'TREATMENT'
+  | 'FOLLOW_UP'
+  | 'SURGERY'
+  | 'LAB_RESULT'
+  | 'OTHER';
+
+export interface Medication {
+  name: string;
+  dosage: string | null;
+  frequency: string | null;
+  duration: string | null;
+}
+
+export interface MedicalRecord {
+  id: string;
+  petId: string;
+  veterinarianId: string;
+  type: MedicalRecordType;
+  occurredAt: string;
+  complaint: string | null;
+  symptoms: string | null;
+  diagnosis: string | null;
+  treatmentPlan: string | null;
+  medications: Medication[] | null;
+  notes: string | null;
+  nextReviewAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  pet: {
+    id: string;
+    name: string;
+    species: string;
+    breed: string | null;
+    status: PetStatus;
+    owner: PetOwner;
+  };
+  veterinarian: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  };
+  _count: {
+    treatments: number;
+    vaccines: number;
+    dewormings: number;
+    mediaFiles: number;
+  };
+}

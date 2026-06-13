@@ -19,6 +19,7 @@ import type {
 } from '@/types/clinical';
 import {
   Activity,
+  BookOpen,
   CalendarDays,
   Cat,
   Dog,
@@ -95,7 +96,11 @@ function formFromPet(pet: Pet): PetForm {
   };
 }
 
-export function PetsPage() {
+export function PetsPage({
+  onOpenHistory,
+}: {
+  onOpenHistory?: (petId: string) => void;
+}) {
   const { request, user } = useAuth();
   const [pets, setPets] = useState<Pet[]>([]);
   const [owners, setOwners] = useState<Owner[]>([]);
@@ -365,6 +370,7 @@ export function PetsPage() {
                 canManage={canManage}
                 onEdit={() => openEdit(pet)}
                 onDelete={() => setDeletingPet(pet)}
+                onOpenHistory={() => onOpenHistory?.(pet.id)}
               />
             ))}
           </div>
@@ -427,11 +433,13 @@ function PetCard({
   canManage,
   onEdit,
   onDelete,
+  onOpenHistory,
 }: {
   pet: Pet;
   canManage: boolean;
   onEdit: () => void;
   onDelete: () => void;
+  onOpenHistory: () => void;
 }) {
   const status = statusLabels[pet.status];
   const PetIcon = pet.species.toLowerCase().includes('fel') ? Cat : Dog;
@@ -489,6 +497,14 @@ function PetCard({
           <p className="text-[11px] text-slate-400">{pet.owner.phone}</p>
         </div>
       </div>
+      <button
+        type="button"
+        onClick={onOpenHistory}
+        className="mt-3 flex h-9 w-full items-center justify-center gap-2 rounded-xl bg-teal-50 text-xs font-semibold text-teal-700 transition hover:bg-teal-100"
+      >
+        <BookOpen className="size-4" />
+        Ver historial clínico
+      </button>
     </article>
   );
 }
