@@ -59,6 +59,58 @@ export interface Pet {
   owner: PetOwner;
 }
 
+export type AppointmentStatus =
+  | 'PENDING'
+  | 'CONFIRMED'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'NO_SHOW';
+
+export type AppointmentType =
+  | 'GENERAL_CONSULTATION'
+  | 'VACCINATION'
+  | 'FOLLOW_UP'
+  | 'SURGERY'
+  | 'GROOMING'
+  | 'EMERGENCY'
+  | 'DEWORMING'
+  | 'OTHER';
+
+export interface AppointmentVeterinarian {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email?: string;
+}
+
+export interface Appointment {
+  id: string;
+  petId: string;
+  ownerId: string;
+  veterinarianId: string | null;
+  type: AppointmentType;
+  status: AppointmentStatus;
+  startsAt: string;
+  endsAt: string;
+  reason: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  pet: {
+    id: string;
+    name: string;
+    species: string;
+    breed: string | null;
+    photoPath: string | null;
+    owner: PetOwner;
+  };
+  veterinarian: AppointmentVeterinarian | null;
+  _count: {
+    medicalRecords: number;
+    payments: number;
+  };
+}
+
 export type MedicalRecordType =
   | 'CONSULTATION'
   | 'VACCINATION'

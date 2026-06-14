@@ -415,8 +415,10 @@ function getMetricCards(metrics: DashboardMetrics): MetricCardProps[] {
 }
 
 export function DashboardPage({
+  onOpenAppointments,
   onOpenPreventive,
 }: {
+  onOpenAppointments?: () => void;
   onOpenPreventive?: () => void;
 }) {
   const { user } = useAuth();
@@ -483,7 +485,21 @@ export function DashboardPage({
 
       <section className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[1.15fr_1.15fr_0.82fr]">
         <Card className="min-h-[310px] overflow-hidden">
-          <PanelHeader icon={CalendarDays} title="Agenda de hoy" />
+          <PanelHeader
+            icon={CalendarDays}
+            title="Agenda de hoy"
+            action={
+              onOpenAppointments ? (
+                <button
+                  type="button"
+                  onClick={onOpenAppointments}
+                  className="text-[11px] font-bold text-teal-600 hover:text-teal-700"
+                >
+                  Ver agenda
+                </button>
+              ) : undefined
+            }
+          />
           <AgendaTable items={data.agendaToday} />
         </Card>
 

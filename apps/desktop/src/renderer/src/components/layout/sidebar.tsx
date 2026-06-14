@@ -21,6 +21,7 @@ export type AppPage =
   | 'dashboard'
   | 'pets'
   | 'owners'
+  | 'appointments'
   | 'history'
   | 'media'
   | 'preventive'
@@ -52,7 +53,12 @@ const navigation: NavigationItem[] = [
     icon: UsersRound,
     permission: 'owners.read',
   },
-  { id: null, label: 'Citas', icon: CalendarDays },
+  {
+    id: 'appointments',
+    label: 'Citas',
+    icon: CalendarDays,
+    permission: 'appointments.read',
+  },
   {
     id: 'history',
     label: 'Historial',

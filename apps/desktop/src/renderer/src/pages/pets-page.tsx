@@ -102,10 +102,12 @@ export function PetsPage({
   onOpenHistory,
   onOpenMedia,
   onOpenPreventive,
+  onOpenAppointments,
 }: {
   onOpenHistory?: (petId: string) => void;
   onOpenMedia?: (petId: string) => void;
   onOpenPreventive?: (petId: string) => void;
+  onOpenAppointments?: (petId: string) => void;
 }) {
   const { request, user } = useAuth();
   const [pets, setPets] = useState<Pet[]>([]);
@@ -379,6 +381,7 @@ export function PetsPage({
                 onOpenHistory={() => onOpenHistory?.(pet.id)}
                 onOpenMedia={() => onOpenMedia?.(pet.id)}
                 onOpenPreventive={() => onOpenPreventive?.(pet.id)}
+                onOpenAppointments={() => onOpenAppointments?.(pet.id)}
               />
             ))}
           </div>
@@ -444,6 +447,7 @@ function PetCard({
   onOpenHistory,
   onOpenMedia,
   onOpenPreventive,
+  onOpenAppointments,
 }: {
   pet: Pet;
   canManage: boolean;
@@ -452,6 +456,7 @@ function PetCard({
   onOpenHistory: () => void;
   onOpenMedia: () => void;
   onOpenPreventive: () => void;
+  onOpenAppointments: () => void;
 }) {
   const status = statusLabels[pet.status];
   const PetIcon = pet.species.toLowerCase().includes('fel') ? Cat : Dog;
@@ -509,7 +514,7 @@ function PetCard({
           <p className="text-[11px] text-slate-400">{pet.owner.phone}</p>
         </div>
       </div>
-      <div className="mt-3 grid grid-cols-3 gap-2">
+      <div className="mt-3 grid grid-cols-2 gap-2">
         <button
           type="button"
           onClick={onOpenHistory}
@@ -517,6 +522,14 @@ function PetCard({
         >
           <BookOpen className="size-4" />
           Historial
+        </button>
+        <button
+          type="button"
+          onClick={onOpenAppointments}
+          className="flex h-9 items-center justify-center gap-2 rounded-xl bg-blue-50 text-xs font-semibold text-blue-700 transition hover:bg-blue-100"
+        >
+          <CalendarDays className="size-4" />
+          Citas
         </button>
         <button
           type="button"

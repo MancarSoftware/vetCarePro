@@ -4,6 +4,7 @@ import {
 } from '@/components/layout/sidebar';
 import { Topbar } from '@/components/layout/topbar';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
+import { AppointmentsPage } from '@/pages/appointments-page';
 import { DashboardPage } from '@/pages/dashboard-page';
 import { LoadingPage } from '@/pages/loading-page';
 import { LoginPage } from '@/pages/login-page';
@@ -20,6 +21,7 @@ function AuthenticatedApp() {
   const { user, logout } = useAuth();
   const [currentPage, setCurrentPage] = useState<AppPage>('dashboard');
   const [historyPetId, setHistoryPetId] = useState<string>();
+  const [appointmentPetId, setAppointmentPetId] = useState<string>();
   const [preventivePetId, setPreventivePetId] = useState<string>();
   const [mediaTarget, setMediaTarget] = useState<{
     petId?: string;
@@ -46,10 +48,25 @@ function AuthenticatedApp() {
             setPreventivePetId(petId);
             setCurrentPage('preventive');
           }}
+          onOpenAppointments={(petId) => {
+            setAppointmentPetId(petId);
+            setCurrentPage('appointments');
+          }}
         />
       );
     }
     if (currentPage === 'owners') return <OwnersPage />;
+    if (currentPage === 'appointments') {
+      return (
+        <AppointmentsPage
+          initialPetId={appointmentPetId}
+          onOpenHistory={(petId) => {
+            setHistoryPetId(petId);
+            setCurrentPage('history');
+          }}
+        />
+      );
+    }
     if (currentPage === 'history') {
       return (
         <MedicalHistoryPage
@@ -79,6 +96,10 @@ function AuthenticatedApp() {
     if (currentPage === 'users') return <UsersPage />;
     return (
       <DashboardPage
+        onOpenAppointments={() => {
+          setAppointmentPetId(undefined);
+          setCurrentPage('appointments');
+        }}
         onOpenPreventive={() => {
           setPreventivePetId(undefined);
           setCurrentPage('preventive');
@@ -91,7 +112,12 @@ function AuthenticatedApp() {
     <div className="min-h-screen bg-[#f7f9fb] text-slate-900">
       <Sidebar
         currentPage={currentPage}
-        onNavigate={setCurrentPage}
+        onNavigate={(page) => {
+          if (page === 'appointments') {
+            setAppointmentPetId(undefined);
+          }
+          setCurrentPage(page);
+        }}
         user={user}
       />
       <div className="min-h-screen pl-[246px]">

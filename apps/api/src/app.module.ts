@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { HealthModule } from './modules/health/health.module';
@@ -27,6 +28,7 @@ import { SecurityModule } from './security/security.module';
     RolesModule,
     OwnersModule,
     PetsModule,
+    AppointmentsModule,
     MedicalRecordsModule,
     MediaModule,
     PreventiveCareModule,
