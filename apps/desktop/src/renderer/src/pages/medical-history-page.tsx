@@ -31,7 +31,9 @@ import {
   FileText,
   FlaskConical,
   HeartPulse,
+  Images,
   LoaderCircle,
+  Paperclip,
   Pencil,
   Pill,
   Plus,
@@ -104,8 +106,10 @@ const typePresentation: Record<MedicalRecordType, TypePresentation> = {
 
 export function MedicalHistoryPage({
   initialPetId,
+  onOpenMedia,
 }: {
   initialPetId?: string;
+  onOpenMedia?: (petId: string, medicalRecordId?: string) => void;
 }) {
   const { request, user } = useAuth();
   const [pets, setPets] = useState<Pet[]>([]);
@@ -318,16 +322,28 @@ export function MedicalHistoryPage({
             tiempo.
           </p>
         </div>
-        {canManage && (
-          <Button
-            onClick={openCreate}
-            disabled={!selectedPetId}
-            className="h-10 bg-teal-600 px-4 text-white hover:bg-teal-700"
-          >
-            <Plus className="size-4" />
-            Nueva atención
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {onOpenMedia && (
+            <Button
+              onClick={() => onOpenMedia(selectedPetId)}
+              disabled={!selectedPetId}
+              className="h-10 border border-slate-200 bg-white px-4 text-slate-600 hover:bg-slate-50"
+            >
+              <Images className="size-4" />
+              Archivos del paciente
+            </Button>
+          )}
+          {canManage && (
+            <Button
+              onClick={openCreate}
+              disabled={!selectedPetId}
+              className="h-10 bg-teal-600 px-4 text-white hover:bg-teal-700"
+            >
+              <Plus className="size-4" />
+              Nueva atención
+            </Button>
+          )}
+        </div>
       </div>
 
       {error && (
@@ -453,6 +469,11 @@ export function MedicalHistoryPage({
                       canManage={canManage}
                       onEdit={() => openEdit(record)}
                       onDelete={() => setDeletingRecord(record)}
+                      onOpenMedia={
+                        onOpenMedia
+                          ? () => onOpenMedia(record.petId, record.id)
+                          : undefined
+                      }
                     />
                   ))}
                 </div>
@@ -573,12 +594,14 @@ function TimelineEntry({
   canManage,
   onEdit,
   onDelete,
+  onOpenMedia,
 }: {
   record: MedicalRecord;
   isLast: boolean;
   canManage: boolean;
   onEdit: () => void;
   onDelete: () => void;
+  onOpenMedia?: () => void;
 }) {
   const presentation = typePresentation[record.type];
   const Icon = presentation.icon;
@@ -616,24 +639,41 @@ function TimelineEntry({
                 {record.veterinarian.lastName}
               </p>
             </div>
-            {canManage && (
-              <div className="flex gap-1">
-                <button
-                  type="button"
-                  onClick={onEdit}
-                  title="Editar entrada clínica"
-                  className="grid size-8 place-items-center rounded-lg text-slate-400 hover:bg-teal-50 hover:text-teal-700"
-                >
-                  <Pencil className="size-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={onDelete}
-                  title="Archivar entrada clínica"
-                  className="grid size-8 place-items-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600"
-                >
-                  <Trash2 className="size-4" />
-                </button>
+            {(canManage || onOpenMedia) && (
+              <div className="flex items-center gap-1">
+                {onOpenMedia && (
+                  <button
+                    type="button"
+                    onClick={onOpenMedia}
+                    title="Ver o adjuntar archivos"
+                    className="mr-1 flex h-8 items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 text-[11px] font-semibold text-slate-500 hover:bg-teal-50 hover:text-teal-700"
+                  >
+                    <Paperclip className="size-3.5" />
+                    {record._count.mediaFiles > 0
+                      ? `${record._count.mediaFiles} archivos`
+                      : 'Adjuntar'}
+                  </button>
+                )}
+                {canManage && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={onEdit}
+                      title="Editar entrada clínica"
+                      className="grid size-8 place-items-center rounded-lg text-slate-400 hover:bg-teal-50 hover:text-teal-700"
+                    >
+                      <Pencil className="size-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onDelete}
+                      title="Archivar entrada clínica"
+                      className="grid size-8 place-items-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>

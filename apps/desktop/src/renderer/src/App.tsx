@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { DashboardPage } from '@/pages/dashboard-page';
 import { LoadingPage } from '@/pages/loading-page';
 import { LoginPage } from '@/pages/login-page';
+import { MediaPage } from '@/pages/media-page';
 import { MedicalHistoryPage } from '@/pages/medical-history-page';
 import { OwnersPage } from '@/pages/owners-page';
 import { PetsPage } from '@/pages/pets-page';
@@ -18,6 +19,10 @@ function AuthenticatedApp() {
   const { user, logout } = useAuth();
   const [currentPage, setCurrentPage] = useState<AppPage>('dashboard');
   const [historyPetId, setHistoryPetId] = useState<string>();
+  const [mediaTarget, setMediaTarget] = useState<{
+    petId?: string;
+    medicalRecordId?: string;
+  }>({});
 
   if (!user) {
     return null;
@@ -31,12 +36,32 @@ function AuthenticatedApp() {
             setHistoryPetId(petId);
             setCurrentPage('history');
           }}
+          onOpenMedia={(petId) => {
+            setMediaTarget({ petId });
+            setCurrentPage('media');
+          }}
         />
       );
     }
     if (currentPage === 'owners') return <OwnersPage />;
     if (currentPage === 'history') {
-      return <MedicalHistoryPage initialPetId={historyPetId} />;
+      return (
+        <MedicalHistoryPage
+          initialPetId={historyPetId}
+          onOpenMedia={(petId, medicalRecordId) => {
+            setMediaTarget({ petId, medicalRecordId });
+            setCurrentPage('media');
+          }}
+        />
+      );
+    }
+    if (currentPage === 'media') {
+      return (
+        <MediaPage
+          initialPetId={mediaTarget.petId}
+          initialMedicalRecordId={mediaTarget.medicalRecordId}
+        />
+      );
     }
     if (currentPage === 'users') return <UsersPage />;
     return <DashboardPage />;

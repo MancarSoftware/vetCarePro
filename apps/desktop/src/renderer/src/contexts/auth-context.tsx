@@ -1,4 +1,9 @@
-import { ApiError, apiRequest, type ApiRequestOptions } from '@/lib/api';
+import {
+  ApiError,
+  apiBlobRequest,
+  apiRequest,
+  type ApiRequestOptions,
+} from '@/lib/api';
 import type {
   AuthResponse,
   AuthUser,
@@ -29,6 +34,7 @@ interface AuthContextValue {
   initialize: (input: InitializeInput) => Promise<void>;
   logout: () => Promise<void>;
   request: <T>(path: string, options?: ApiRequestOptions) => Promise<T>;
+  requestBlob: (path: string, options?: ApiRequestOptions) => Promise<Blob>;
 }
 
 interface SetupStatus {
@@ -147,6 +153,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [clearSession, refreshSession],
   );
 
+  const requestBlob = useCallback(
+    async (
+      path: string,
+      options: ApiRequestOptions = {},
+    ): Promise<Blob> => {
+      try {
+        return await apiBlobRequest(path, {
+          ...options,
+          accessToken: accessTokenRef.current,
+        });
+      } catch (error) {
+        if (!(error instanceof ApiError) || error.status !== 401) {
+          throw error;
+        }
+
+        try {
+          const accessToken = await refreshSession();
+          return await apiBlobRequest(path, {
+            ...options,
+            accessToken,
+          });
+        } catch (refreshError) {
+          await clearSession();
+          throw refreshError;
+        }
+      }
+    },
+    [clearSession, refreshSession],
+  );
+
   const login = useCallback(
     async (input: LoginInput) => {
       const response = await apiRequest<AuthResponse>('/auth/login', {
@@ -217,8 +253,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refreshSession]);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ status, user, login, initialize, logout, request }),
-    [status, user, login, initialize, logout, request],
+    () => ({
+      status,
+      user,
+      login,
+      initialize,
+      logout,
+      request,
+      requestBlob,
+    }),
+    [status, user, login, initialize, logout, request, requestBlob],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

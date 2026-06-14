@@ -110,3 +110,45 @@ export interface MedicalRecord {
     mediaFiles: number;
   };
 }
+
+export type MediaCategory =
+  | 'PET_PROFILE'
+  | 'WOUND'
+  | 'RADIOGRAPH'
+  | 'DOCUMENT'
+  | 'PRESCRIPTION'
+  | 'EVOLUTION'
+  | 'OTHER';
+
+export interface ClinicalMediaFile {
+  id: string;
+  petId: string;
+  medicalRecordId: string | null;
+  treatmentId: string | null;
+  uploadedById: string;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  category: MediaCategory;
+  tags: string[];
+  createdAt: string;
+  deletedAt: string | null;
+  contentUrl: string;
+  pet: {
+    id: string;
+    name: string;
+    species: string;
+    breed: string | null;
+  };
+  medicalRecord: {
+    id: string;
+    type: MedicalRecordType;
+    complaint: string | null;
+    occurredAt: string;
+  } | null;
+  uploadedBy: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  };
+}

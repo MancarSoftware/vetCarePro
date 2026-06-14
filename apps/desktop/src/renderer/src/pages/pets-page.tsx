@@ -23,6 +23,7 @@ import {
   CalendarDays,
   Cat,
   Dog,
+  Images,
   LoaderCircle,
   Mars,
   Pencil,
@@ -98,8 +99,10 @@ function formFromPet(pet: Pet): PetForm {
 
 export function PetsPage({
   onOpenHistory,
+  onOpenMedia,
 }: {
   onOpenHistory?: (petId: string) => void;
+  onOpenMedia?: (petId: string) => void;
 }) {
   const { request, user } = useAuth();
   const [pets, setPets] = useState<Pet[]>([]);
@@ -371,6 +374,7 @@ export function PetsPage({
                 onEdit={() => openEdit(pet)}
                 onDelete={() => setDeletingPet(pet)}
                 onOpenHistory={() => onOpenHistory?.(pet.id)}
+                onOpenMedia={() => onOpenMedia?.(pet.id)}
               />
             ))}
           </div>
@@ -434,12 +438,14 @@ function PetCard({
   onEdit,
   onDelete,
   onOpenHistory,
+  onOpenMedia,
 }: {
   pet: Pet;
   canManage: boolean;
   onEdit: () => void;
   onDelete: () => void;
   onOpenHistory: () => void;
+  onOpenMedia: () => void;
 }) {
   const status = statusLabels[pet.status];
   const PetIcon = pet.species.toLowerCase().includes('fel') ? Cat : Dog;
@@ -497,14 +503,24 @@ function PetCard({
           <p className="text-[11px] text-slate-400">{pet.owner.phone}</p>
         </div>
       </div>
-      <button
-        type="button"
-        onClick={onOpenHistory}
-        className="mt-3 flex h-9 w-full items-center justify-center gap-2 rounded-xl bg-teal-50 text-xs font-semibold text-teal-700 transition hover:bg-teal-100"
-      >
-        <BookOpen className="size-4" />
-        Ver historial clínico
-      </button>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={onOpenHistory}
+          className="flex h-9 items-center justify-center gap-2 rounded-xl bg-teal-50 text-xs font-semibold text-teal-700 transition hover:bg-teal-100"
+        >
+          <BookOpen className="size-4" />
+          Historial
+        </button>
+        <button
+          type="button"
+          onClick={onOpenMedia}
+          className="flex h-9 items-center justify-center gap-2 rounded-xl bg-slate-100 text-xs font-semibold text-slate-600 transition hover:bg-slate-200"
+        >
+          <Images className="size-4" />
+          Archivos
+        </button>
+      </div>
     </article>
   );
 }

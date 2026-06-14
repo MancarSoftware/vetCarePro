@@ -22,23 +22,50 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiRequest<T>(
-  path: string,
-  options: ApiRequestOptions = {},
-): Promise<T> {
-  let response: Response;
+function isFormData(body: unknown): body is FormData {
+  return typeof FormData !== 'undefined' && body instanceof FormData;
+}
 
+async function throwResponseError(response: Response): Promise<never> {
+  let payload: ApiErrorPayload | null = null;
   try {
-    response = await fetch(`${API_URL}${path}`, {
+    payload = (await response.json()) as ApiErrorPayload;
+  } catch {
+    payload = null;
+  }
+  const message = Array.isArray(payload?.message)
+    ? payload.message[0]
+    : payload?.message;
+  throw new ApiError(
+    message || 'El servicio local no pudo completar la solicitud.',
+    response.status,
+  );
+}
+
+async function performRequest(
+  path: string,
+  options: ApiRequestOptions,
+): Promise<Response> {
+  const formData = isFormData(options.body);
+  let requestBody: BodyInit | undefined;
+  if (options.body !== undefined) {
+    requestBody = isFormData(options.body)
+      ? options.body
+      : JSON.stringify(options.body);
+  }
+  try {
+    return await fetch(`${API_URL}${path}`, {
       method: options.method ?? 'GET',
       headers: {
         Accept: 'application/json',
-        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(options.body && !formData
+          ? { 'Content-Type': 'application/json' }
+          : {}),
         ...(options.accessToken
           ? { Authorization: `Bearer ${options.accessToken}` }
           : {}),
       },
-      body: options.body ? JSON.stringify(options.body) : undefined,
+      body: requestBody,
       signal: options.signal,
     });
   } catch {
@@ -46,24 +73,33 @@ export async function apiRequest<T>(
       'No se pudo conectar con el servicio local de VetCare Pro.',
     );
   }
+}
+
+export async function apiRequest<T>(
+  path: string,
+  options: ApiRequestOptions = {},
+): Promise<T> {
+  const response = await performRequest(path, options);
 
   if (!response.ok) {
-    let payload: ApiErrorPayload | null = null;
-    try {
-      payload = (await response.json()) as ApiErrorPayload;
-    } catch {
-      payload = null;
-    }
-    const message = Array.isArray(payload?.message)
-      ? payload.message[0]
-      : payload?.message;
-    throw new ApiError(
-      message || 'El servicio local no pudo completar la solicitud.',
-      response.status,
-    );
+    return throwResponseError(response);
+  }
+  if (response.status === 204) {
+    return undefined as T;
   }
 
   return response.json() as Promise<T>;
+}
+
+export async function apiBlobRequest(
+  path: string,
+  options: ApiRequestOptions = {},
+): Promise<Blob> {
+  const response = await performRequest(path, options);
+  if (!response.ok) {
+    return throwResponseError(response);
+  }
+  return response.blob();
 }
 
 export function getJson<T>(

@@ -5,6 +5,7 @@ import {
   ClipboardPlus,
   CreditCard,
   HeartHandshake,
+  Images,
   LayoutDashboard,
   PawPrint,
   Settings,
@@ -21,6 +22,7 @@ export type AppPage =
   | 'pets'
   | 'owners'
   | 'history'
+  | 'media'
   | 'users';
 
 interface NavigationItem {
@@ -54,6 +56,12 @@ const navigation: NavigationItem[] = [
     id: 'history',
     label: 'Historial',
     icon: ClipboardPlus,
+    permission: 'medical.read',
+  },
+  {
+    id: 'media',
+    label: 'Archivos',
+    icon: Images,
     permission: 'medical.read',
   },
   { id: null, label: 'Vacunas', icon: Syringe },
