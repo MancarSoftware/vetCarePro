@@ -11,6 +11,7 @@ import { MediaPage } from '@/pages/media-page';
 import { MedicalHistoryPage } from '@/pages/medical-history-page';
 import { OwnersPage } from '@/pages/owners-page';
 import { PetsPage } from '@/pages/pets-page';
+import { PreventiveCarePage } from '@/pages/preventive-care-page';
 import { SetupPage } from '@/pages/setup-page';
 import { UsersPage } from '@/pages/users-page';
 import { useState } from 'react';
@@ -19,6 +20,7 @@ function AuthenticatedApp() {
   const { user, logout } = useAuth();
   const [currentPage, setCurrentPage] = useState<AppPage>('dashboard');
   const [historyPetId, setHistoryPetId] = useState<string>();
+  const [preventivePetId, setPreventivePetId] = useState<string>();
   const [mediaTarget, setMediaTarget] = useState<{
     petId?: string;
     medicalRecordId?: string;
@@ -40,6 +42,10 @@ function AuthenticatedApp() {
             setMediaTarget({ petId });
             setCurrentPage('media');
           }}
+          onOpenPreventive={(petId) => {
+            setPreventivePetId(petId);
+            setCurrentPage('preventive');
+          }}
         />
       );
     }
@@ -52,6 +58,10 @@ function AuthenticatedApp() {
             setMediaTarget({ petId, medicalRecordId });
             setCurrentPage('media');
           }}
+          onOpenPreventive={(petId) => {
+            setPreventivePetId(petId);
+            setCurrentPage('preventive');
+          }}
         />
       );
     }
@@ -63,8 +73,18 @@ function AuthenticatedApp() {
         />
       );
     }
+    if (currentPage === 'preventive') {
+      return <PreventiveCarePage initialPetId={preventivePetId} />;
+    }
     if (currentPage === 'users') return <UsersPage />;
-    return <DashboardPage />;
+    return (
+      <DashboardPage
+        onOpenPreventive={() => {
+          setPreventivePetId(undefined);
+          setCurrentPage('preventive');
+        }}
+      />
+    );
   };
 
   return (

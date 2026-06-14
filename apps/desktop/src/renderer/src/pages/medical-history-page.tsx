@@ -39,6 +39,7 @@ import {
   Plus,
   Scissors,
   Search,
+  ShieldPlus,
   Stethoscope,
   Syringe,
   Trash2,
@@ -107,9 +108,11 @@ const typePresentation: Record<MedicalRecordType, TypePresentation> = {
 export function MedicalHistoryPage({
   initialPetId,
   onOpenMedia,
+  onOpenPreventive,
 }: {
   initialPetId?: string;
   onOpenMedia?: (petId: string, medicalRecordId?: string) => void;
+  onOpenPreventive?: (petId: string) => void;
 }) {
   const { request, user } = useAuth();
   const [pets, setPets] = useState<Pet[]>([]);
@@ -323,6 +326,16 @@ export function MedicalHistoryPage({
           </p>
         </div>
         <div className="flex gap-2">
+          {onOpenPreventive && (
+            <Button
+              onClick={() => onOpenPreventive(selectedPetId)}
+              disabled={!selectedPetId}
+              className="h-10 border border-violet-200 bg-violet-50 px-4 text-violet-700 hover:bg-violet-100"
+            >
+              <ShieldPlus className="size-4" />
+              Prevención
+            </Button>
+          )}
           {onOpenMedia && (
             <Button
               onClick={() => onOpenMedia(selectedPetId)}
@@ -474,6 +487,11 @@ export function MedicalHistoryPage({
                           ? () => onOpenMedia(record.petId, record.id)
                           : undefined
                       }
+                      onOpenPreventive={
+                        onOpenPreventive
+                          ? () => onOpenPreventive(record.petId)
+                          : undefined
+                      }
                     />
                   ))}
                 </div>
@@ -595,6 +613,7 @@ function TimelineEntry({
   onEdit,
   onDelete,
   onOpenMedia,
+  onOpenPreventive,
 }: {
   record: MedicalRecord;
   isLast: boolean;
@@ -602,6 +621,7 @@ function TimelineEntry({
   onEdit: () => void;
   onDelete: () => void;
   onOpenMedia?: () => void;
+  onOpenPreventive?: () => void;
 }) {
   const presentation = typePresentation[record.type];
   const Icon = presentation.icon;
@@ -639,8 +659,22 @@ function TimelineEntry({
                 {record.veterinarian.lastName}
               </p>
             </div>
-            {(canManage || onOpenMedia) && (
+            {(canManage || onOpenMedia || onOpenPreventive) && (
               <div className="flex items-center gap-1">
+                {onOpenPreventive &&
+                  record._count.vaccines + record._count.dewormings > 0 && (
+                    <button
+                      type="button"
+                      onClick={onOpenPreventive}
+                      title="Ver control preventivo"
+                      className="mr-1 flex h-8 items-center gap-1.5 rounded-lg bg-violet-50 px-2.5 text-[11px] font-semibold text-violet-700 hover:bg-violet-100"
+                    >
+                      <ShieldPlus className="size-3.5" />
+                      {record._count.vaccines +
+                        record._count.dewormings}{' '}
+                      preventivo
+                    </button>
+                  )}
                 {onOpenMedia && (
                   <button
                     type="button"

@@ -29,6 +29,7 @@ import {
   Pencil,
   Plus,
   Search,
+  ShieldPlus,
   Trash2,
   UserRound,
   Venus,
@@ -100,9 +101,11 @@ function formFromPet(pet: Pet): PetForm {
 export function PetsPage({
   onOpenHistory,
   onOpenMedia,
+  onOpenPreventive,
 }: {
   onOpenHistory?: (petId: string) => void;
   onOpenMedia?: (petId: string) => void;
+  onOpenPreventive?: (petId: string) => void;
 }) {
   const { request, user } = useAuth();
   const [pets, setPets] = useState<Pet[]>([]);
@@ -375,6 +378,7 @@ export function PetsPage({
                 onDelete={() => setDeletingPet(pet)}
                 onOpenHistory={() => onOpenHistory?.(pet.id)}
                 onOpenMedia={() => onOpenMedia?.(pet.id)}
+                onOpenPreventive={() => onOpenPreventive?.(pet.id)}
               />
             ))}
           </div>
@@ -439,6 +443,7 @@ function PetCard({
   onDelete,
   onOpenHistory,
   onOpenMedia,
+  onOpenPreventive,
 }: {
   pet: Pet;
   canManage: boolean;
@@ -446,6 +451,7 @@ function PetCard({
   onDelete: () => void;
   onOpenHistory: () => void;
   onOpenMedia: () => void;
+  onOpenPreventive: () => void;
 }) {
   const status = statusLabels[pet.status];
   const PetIcon = pet.species.toLowerCase().includes('fel') ? Cat : Dog;
@@ -503,7 +509,7 @@ function PetCard({
           <p className="text-[11px] text-slate-400">{pet.owner.phone}</p>
         </div>
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-2">
+      <div className="mt-3 grid grid-cols-3 gap-2">
         <button
           type="button"
           onClick={onOpenHistory}
@@ -519,6 +525,14 @@ function PetCard({
         >
           <Images className="size-4" />
           Archivos
+        </button>
+        <button
+          type="button"
+          onClick={onOpenPreventive}
+          className="flex h-9 items-center justify-center gap-1.5 rounded-xl bg-violet-50 text-[11px] font-semibold text-violet-700 transition hover:bg-violet-100"
+        >
+          <ShieldPlus className="size-4" />
+          Prevención
         </button>
       </div>
     </article>

@@ -7,6 +7,7 @@ import { MedicalRecordsModule } from './modules/medical-records/medical-records.
 import { MediaModule } from './modules/media/media.module';
 import { OwnersModule } from './modules/owners/owners.module';
 import { PetsModule } from './modules/pets/pets.module';
+import { PreventiveCareModule } from './modules/preventive-care/preventive-care.module';
 import { RolesModule } from './modules/roles/roles.module';
 import { UsersModule } from './modules/users/users.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -28,6 +29,7 @@ import { SecurityModule } from './security/security.module';
     PetsModule,
     MedicalRecordsModule,
     MediaModule,
+    PreventiveCareModule,
     DashboardModule,
   ],
 })

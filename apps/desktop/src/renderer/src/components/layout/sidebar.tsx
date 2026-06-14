@@ -23,6 +23,7 @@ export type AppPage =
   | 'owners'
   | 'history'
   | 'media'
+  | 'preventive'
   | 'users';
 
 interface NavigationItem {
@@ -64,7 +65,12 @@ const navigation: NavigationItem[] = [
     icon: Images,
     permission: 'medical.read',
   },
-  { id: null, label: 'Vacunas', icon: Syringe },
+  {
+    id: 'preventive',
+    label: 'Vacunas',
+    icon: Syringe,
+    permission: 'vaccines.read',
+  },
   { id: null, label: 'Tratamientos', icon: HeartHandshake },
   { id: null, label: 'Pagos', icon: CreditCard },
   { id: null, label: 'Inventario', icon: Boxes },
@@ -88,7 +94,7 @@ export function Sidebar({
   user: AuthUser;
 }) {
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 flex w-[246px] flex-col border-r border-slate-200 bg-white px-3 py-4">
+    <aside className="fixed inset-y-0 left-0 z-30 flex w-[246px] flex-col overflow-y-auto border-r border-slate-200 bg-white px-3 py-4">
       <div className="flex h-16 items-center gap-3 px-4">
         <div className="grid size-10 place-items-center rounded-xl bg-teal-600 text-white shadow-lg shadow-teal-600/20">
           <HeartHandshake className="size-6" />
@@ -98,7 +104,7 @@ export function Sidebar({
         </div>
       </div>
 
-      <nav className="mt-4 space-y-1">
+      <nav className="mt-2 space-y-0.5">
         {navigation.map(({ id, label, icon: Icon, permission }) => {
           const available =
             id !== null &&
@@ -116,8 +122,8 @@ export function Sidebar({
             }
             className={
               active
-                ? 'flex h-11 w-full items-center gap-3 rounded-xl bg-gradient-to-r from-teal-600 to-cyan-600 px-4 text-sm font-semibold text-white shadow-md shadow-teal-600/15'
-                : 'flex h-11 w-full items-center gap-3 rounded-xl px-4 text-sm font-medium text-slate-600 disabled:cursor-not-allowed disabled:opacity-75'
+                ? 'flex h-10 w-full items-center gap-3 rounded-xl bg-gradient-to-r from-teal-600 to-cyan-600 px-4 text-sm font-semibold text-white shadow-md shadow-teal-600/15'
+                : 'flex h-10 w-full items-center gap-3 rounded-xl px-4 text-sm font-medium text-slate-600 disabled:cursor-not-allowed disabled:opacity-75'
             }
           >
             <Icon className="size-5" strokeWidth={1.8} />
@@ -128,7 +134,7 @@ export function Sidebar({
       </nav>
 
       <div className="mt-auto">
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-teal-50 p-4">
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-teal-50 p-4 [@media(max-height:850px)]:hidden">
           <div className="mb-3 flex items-center gap-3">
             <div className="grid size-10 place-items-center rounded-xl bg-teal-100 text-teal-700">
               <ShieldCheck className="size-5" />

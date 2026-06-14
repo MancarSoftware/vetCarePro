@@ -282,18 +282,20 @@ function VaccineTable({ items }: { items: UpcomingVaccine[] }) {
               <td className="py-3 text-slate-600">{item.name}</td>
               <td className="py-3 text-slate-600">
                 {item.nextDueDate
-                  ? format(new Date(item.nextDueDate), 'dd/MM/yyyy')
+                  ? formatDateOnly(item.nextDueDate)
                   : 'Sin fecha'}
               </td>
               <td className="py-3 text-right">
                 <Badge
                   className={cn(
-                    item.daysRemaining !== null && item.daysRemaining <= 7
+                    item.status === 'OVERDUE'
                       ? 'bg-rose-50 text-rose-600'
-                      : 'bg-orange-50 text-orange-600',
+                      : item.status === 'PENDING'
+                        ? 'bg-amber-50 text-amber-700'
+                        : 'bg-orange-50 text-orange-600',
                   )}
                 >
-                  {item.daysRemaining ?? '-'}
+                  {vaccineDueLabel(item)}
                 </Badge>
               </td>
             </tr>
@@ -302,6 +304,24 @@ function VaccineTable({ items }: { items: UpcomingVaccine[] }) {
       </table>
     </div>
   );
+}
+
+function formatDateOnly(value: string): string {
+  const [year, month, day] = value.slice(0, 10).split('-').map(Number);
+  return new Intl.DateTimeFormat('es-EC', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(new Date(year, month - 1, day));
+}
+
+function vaccineDueLabel(item: UpcomingVaccine): string {
+  if (item.daysRemaining === null) return '-';
+  if (item.status === 'PENDING') return 'Hoy';
+  if (item.status === 'OVERDUE') {
+    return `${Math.abs(item.daysRemaining)} d vencida`;
+  }
+  return `${item.daysRemaining} d`;
 }
 
 function InventoryList({ items }: { items: LowStockProduct[] }) {
@@ -394,7 +414,11 @@ function getMetricCards(metrics: DashboardMetrics): MetricCardProps[] {
   ];
 }
 
-export function DashboardPage() {
+export function DashboardPage({
+  onOpenPreventive,
+}: {
+  onOpenPreventive?: () => void;
+}) {
   const { user } = useAuth();
   const { data, error, isLoading, refresh } = useDashboard();
   const now = new Date();
@@ -464,7 +488,21 @@ export function DashboardPage() {
         </Card>
 
         <Card className="min-h-[310px] overflow-hidden">
-          <PanelHeader icon={Syringe} title="Próximas vacunas" />
+          <PanelHeader
+            icon={Syringe}
+            title="Alertas de vacunación"
+            action={
+              onOpenPreventive ? (
+                <button
+                  type="button"
+                  onClick={onOpenPreventive}
+                  className="text-[11px] font-bold text-teal-600 hover:text-teal-700"
+                >
+                  Ver todas
+                </button>
+              ) : undefined
+            }
+          />
           <VaccineTable items={data.upcomingVaccines} />
         </Card>
 

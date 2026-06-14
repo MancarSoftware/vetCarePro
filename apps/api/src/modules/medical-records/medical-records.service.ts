@@ -96,10 +96,10 @@ export class MedicalRecordsService {
           },
           _count: {
             select: {
-              treatments: true,
-              vaccines: true,
-              dewormings: true,
-              mediaFiles: true,
+              treatments: { where: { deletedAt: null } },
+              vaccines: { where: { deletedAt: null } },
+              dewormings: { where: { deletedAt: null } },
+              mediaFiles: { where: { deletedAt: null } },
             },
           },
         },

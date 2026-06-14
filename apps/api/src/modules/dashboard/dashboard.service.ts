@@ -1,5 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  addUtcDays,
+  daysUntil,
+  getPreventiveCareStatus,
+  todayDateOnly,
+} from '../preventive-care/preventive-care-status';
 
 const UPCOMING_VACCINE_DAYS = 30;
 
@@ -11,8 +17,12 @@ export class DashboardService {
     const now = new Date();
     const todayStart = this.startOfDay(now);
     const tomorrowStart = this.addDays(todayStart, 1);
+    const preventiveToday = todayDateOnly(now);
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const nextVaccineLimit = this.addDays(todayStart, UPCOMING_VACCINE_DAYS);
+    const nextVaccineLimit = addUtcDays(
+      preventiveToday,
+      UPCOMING_VACCINE_DAYS,
+    );
     const chartStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
 
     const [
@@ -38,7 +48,7 @@ export class DashboardService {
       }),
       this.prisma.vaccine.count({
         where: {
-          nextDueDate: { gte: todayStart, lte: nextVaccineLimit },
+          nextDueDate: { lte: nextVaccineLimit },
           deletedAt: null,
           pet: { deletedAt: null, status: 'ACTIVE' },
         },
@@ -76,7 +86,7 @@ export class DashboardService {
       }),
       this.prisma.vaccine.findMany({
         where: {
-          nextDueDate: { gte: todayStart, lte: nextVaccineLimit },
+          nextDueDate: { lte: nextVaccineLimit },
           deletedAt: null,
           pet: { deletedAt: null, status: 'ACTIVE' },
         },
@@ -180,9 +190,8 @@ export class DashboardService {
       agendaToday,
       upcomingVaccines: upcomingVaccines.map((vaccine) => ({
         ...vaccine,
-        daysRemaining: vaccine.nextDueDate
-          ? this.daysBetween(todayStart, vaccine.nextDueDate)
-          : null,
+        status: getPreventiveCareStatus(vaccine.nextDueDate, now),
+        daysRemaining: daysUntil(vaccine.nextDueDate, now),
       })),
       lowStock,
       recentPatients,
@@ -224,9 +233,4 @@ export class DashboardService {
     return result;
   }
 
-  private daysBetween(start: Date, end: Date): number {
-    const millisecondsPerDay = 1000 * 60 * 60 * 24;
-    return Math.ceil((end.getTime() - start.getTime()) / millisecondsPerDay);
-  }
 }
-

@@ -26,6 +26,7 @@ export interface UpcomingVaccine {
   name: string;
   nextDueDate: string | null;
   daysRemaining: number | null;
+  status: 'APPLIED' | 'PENDING' | 'OVERDUE' | 'UPCOMING';
   pet: Omit<DashboardPet, 'species'>;
 }
 
@@ -68,4 +69,3 @@ export interface DashboardSummary {
   activeTreatments: ActiveTreatment[];
   incomeLastSixMonths: IncomePoint[];
 }
-

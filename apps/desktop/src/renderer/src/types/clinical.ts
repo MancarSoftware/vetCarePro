@@ -152,3 +152,62 @@ export interface ClinicalMediaFile {
     lastName: string;
   };
 }
+
+export type PreventiveCareStatus =
+  | 'APPLIED'
+  | 'PENDING'
+  | 'OVERDUE'
+  | 'UPCOMING';
+
+export interface PreventiveCareSummary {
+  vaccinesTotal: number;
+  dewormingsTotal: number;
+  applied: number;
+  pending: number;
+  upcoming: number;
+  overdue: number;
+}
+
+interface PreventiveCareBase {
+  id: string;
+  petId: string;
+  medicalRecordId: string | null;
+  veterinarianId: string;
+  appliedAt: string;
+  nextDueDate: string | null;
+  status: PreventiveCareStatus;
+  daysRemaining: number | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  pet: {
+    id: string;
+    name: string;
+    species: string;
+    breed: string | null;
+    owner: PetOwner;
+  };
+  medicalRecord: {
+    id: string;
+    type: MedicalRecordType;
+    complaint: string | null;
+    occurredAt: string;
+  } | null;
+  veterinarian: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  };
+}
+
+export interface VaccineRecord extends PreventiveCareBase {
+  name: string;
+  manufacturer: string | null;
+  batchNumber: string | null;
+}
+
+export interface DewormingRecord extends PreventiveCareBase {
+  medication: string;
+  weightKg: number | null;
+  dosage: string | null;
+}
