@@ -472,6 +472,7 @@ model InventoryProduct {
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
   deletedAt       DateTime?
+  batches         InventoryBatch[]
   movements       InventoryMovement[]
 
   @@index([name])
@@ -481,9 +482,32 @@ model InventoryProduct {
   @@map("inventory_products")
 }
 
+model InventoryBatch {
+  id              String              @id @default(uuid()) @db.Uuid
+  productId       String              @db.Uuid
+  batchNumber     String?             @db.VarChar(100)
+  initialQuantity Decimal             @db.Decimal(12, 3)
+  currentQuantity Decimal             @db.Decimal(12, 3)
+  unitCost        Decimal?            @db.Decimal(12, 2)
+  expirationDate  DateTime?           @db.Date
+  receivedAt      DateTime            @default(now())
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  deletedAt       DateTime?
+  product         InventoryProduct    @relation(fields: [productId], references: [id], onDelete: Restrict)
+  movements       InventoryMovement[]
+
+  @@index([productId, expirationDate])
+  @@index([productId, currentQuantity])
+  @@index([batchNumber])
+  @@index([deletedAt])
+  @@map("inventory_batches")
+}
+
 model InventoryMovement {
   id            String                @id @default(uuid()) @db.Uuid
   productId     String                @db.Uuid
+  batchId       String?               @db.Uuid
   performedById String                @db.Uuid
   type          InventoryMovementType
   quantity      Decimal               @db.Decimal(12, 3)
@@ -493,9 +517,11 @@ model InventoryMovement {
   notes         String?               @db.Text
   createdAt     DateTime              @default(now())
   product       InventoryProduct      @relation(fields: [productId], references: [id], onDelete: Restrict)
+  batch         InventoryBatch?       @relation(fields: [batchId], references: [id], onDelete: SetNull)
   performedBy   User                  @relation("InventoryMovementUser", fields: [performedById], references: [id], onDelete: Restrict)
 
   @@index([productId, createdAt])
+  @@index([batchId, createdAt])
   @@index([type, createdAt])
   @@map("inventory_movements")
 }

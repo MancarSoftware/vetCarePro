@@ -364,3 +364,94 @@ export interface DewormingRecord extends PreventiveCareBase {
   weightKg: number | null;
   dosage: string | null;
 }
+
+export type InventoryMovementType =
+  | 'PURCHASE'
+  | 'SALE'
+  | 'ADJUSTMENT_IN'
+  | 'ADJUSTMENT_OUT'
+  | 'CLINICAL_USE'
+  | 'RETURN'
+  | 'EXPIRED';
+
+export type InventoryStockStatus =
+  | 'AVAILABLE'
+  | 'LOW_STOCK'
+  | 'OUT_OF_STOCK';
+
+export interface InventoryBatch {
+  id: string;
+  productId?: string;
+  batchNumber: string | null;
+  initialQuantity?: number;
+  currentQuantity: number;
+  unitCost?: number | null;
+  expirationDate: string | null;
+  receivedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface InventoryMovement {
+  id: string;
+  productId: string;
+  batchId: string | null;
+  performedById: string;
+  type: InventoryMovementType;
+  quantity: number;
+  unitCost: number | null;
+  referenceType: string | null;
+  referenceId: string | null;
+  notes: string | null;
+  createdAt: string;
+  product?: {
+    id: string;
+    name: string;
+    unit: string;
+  };
+  batch: {
+    id: string;
+    batchNumber: string | null;
+    expirationDate: string | null;
+  } | null;
+  performedBy: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  };
+}
+
+export interface InventoryProduct {
+  id: string;
+  sku: string | null;
+  name: string;
+  category: string;
+  currentStock: number;
+  minimumStock: number;
+  unit: string;
+  purchasePrice: number | null;
+  salePrice: number | null;
+  expirationDate: string | null;
+  supplier: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  stockStatus?: InventoryStockStatus;
+  nextExpiration?: string | null;
+  expiringSoon?: boolean;
+  batches: InventoryBatch[];
+  movements?: InventoryMovement[];
+  _count: {
+    movements: number;
+    batches: number;
+  };
+}
+
+export interface InventorySummary {
+  totalProducts: number;
+  lowStock: number;
+  outOfStock: number;
+  expiringSoon: number;
+  expiredBatches: number;
+  inventoryValue: number;
+}

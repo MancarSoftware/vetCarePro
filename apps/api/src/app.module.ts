@@ -4,6 +4,7 @@ import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { HealthModule } from './modules/health/health.module';
+import { InventoryModule } from './modules/inventory/inventory.module';
 import { MedicalRecordsModule } from './modules/medical-records/medical-records.module';
 import { MediaModule } from './modules/media/media.module';
 import { OwnersModule } from './modules/owners/owners.module';
@@ -24,6 +25,7 @@ import { SecurityModule } from './security/security.module';
     PrismaModule,
     SecurityModule,
     HealthModule,
+    InventoryModule,
     AuthModule,
     UsersModule,
     RolesModule,

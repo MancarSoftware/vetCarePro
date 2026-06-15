@@ -8,6 +8,7 @@ import { AppointmentsPage } from '@/pages/appointments-page';
 import { DashboardPage } from '@/pages/dashboard-page';
 import { LoadingPage } from '@/pages/loading-page';
 import { LoginPage } from '@/pages/login-page';
+import { InventoryPage } from '@/pages/inventory-page';
 import { MediaPage } from '@/pages/media-page';
 import { MedicalHistoryPage } from '@/pages/medical-history-page';
 import { OwnersPage } from '@/pages/owners-page';
@@ -124,6 +125,7 @@ function AuthenticatedApp() {
         />
       );
     }
+    if (currentPage === 'inventory') return <InventoryPage />;
     if (currentPage === 'users') return <UsersPage />;
     return (
       <DashboardPage
@@ -139,6 +141,7 @@ function AuthenticatedApp() {
           setTreatmentTarget({});
           setCurrentPage('treatments');
         }}
+        onOpenInventory={() => setCurrentPage('inventory')}
       />
     );
   };

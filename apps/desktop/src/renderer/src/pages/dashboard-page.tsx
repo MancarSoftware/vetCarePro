@@ -418,10 +418,12 @@ export function DashboardPage({
   onOpenAppointments,
   onOpenPreventive,
   onOpenTreatments,
+  onOpenInventory,
 }: {
   onOpenAppointments?: () => void;
   onOpenPreventive?: () => void;
   onOpenTreatments?: () => void;
+  onOpenInventory?: () => void;
 }) {
   const { user } = useAuth();
   const { data, error, isLoading, refresh } = useDashboard();
@@ -525,7 +527,22 @@ export function DashboardPage({
         </Card>
 
         <Card className="min-h-[310px] overflow-hidden">
-          <PanelHeader icon={PackageOpen} title="Inventario bajo" />
+          <PanelHeader
+            icon={PackageOpen}
+            title="Inventario bajo"
+            action={
+              onOpenInventory &&
+              user?.permissions.includes('inventory.read') ? (
+                <button
+                  type="button"
+                  onClick={onOpenInventory}
+                  className="text-[11px] font-bold text-teal-600 hover:text-teal-700"
+                >
+                  Ver inventario
+                </button>
+              ) : undefined
+            }
+          />
           <InventoryList items={data.lowStock} />
         </Card>
       </section>

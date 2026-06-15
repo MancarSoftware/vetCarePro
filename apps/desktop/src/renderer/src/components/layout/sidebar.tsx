@@ -26,6 +26,7 @@ export type AppPage =
   | 'media'
   | 'preventive'
   | 'treatments'
+  | 'inventory'
   | 'users';
 
 interface NavigationItem {
@@ -85,7 +86,12 @@ const navigation: NavigationItem[] = [
     permission: 'treatments.read',
   },
   { id: null, label: 'Pagos', icon: CreditCard },
-  { id: null, label: 'Inventario', icon: Boxes },
+  {
+    id: 'inventory',
+    label: 'Inventario',
+    icon: Boxes,
+    permission: 'inventory.read',
+  },
   { id: null, label: 'Reportes', icon: BarChart3 },
   {
     id: 'users',
