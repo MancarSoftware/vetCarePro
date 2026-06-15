@@ -103,11 +103,13 @@ export function PetsPage({
   onOpenMedia,
   onOpenPreventive,
   onOpenAppointments,
+  onOpenTreatments,
 }: {
   onOpenHistory?: (petId: string) => void;
   onOpenMedia?: (petId: string) => void;
   onOpenPreventive?: (petId: string) => void;
   onOpenAppointments?: (petId: string) => void;
+  onOpenTreatments?: (petId: string) => void;
 }) {
   const { request, user } = useAuth();
   const [pets, setPets] = useState<Pet[]>([]);
@@ -382,6 +384,7 @@ export function PetsPage({
                 onOpenMedia={() => onOpenMedia?.(pet.id)}
                 onOpenPreventive={() => onOpenPreventive?.(pet.id)}
                 onOpenAppointments={() => onOpenAppointments?.(pet.id)}
+                onOpenTreatments={() => onOpenTreatments?.(pet.id)}
               />
             ))}
           </div>
@@ -448,6 +451,7 @@ function PetCard({
   onOpenMedia,
   onOpenPreventive,
   onOpenAppointments,
+  onOpenTreatments,
 }: {
   pet: Pet;
   canManage: boolean;
@@ -457,6 +461,7 @@ function PetCard({
   onOpenMedia: () => void;
   onOpenPreventive: () => void;
   onOpenAppointments: () => void;
+  onOpenTreatments: () => void;
 }) {
   const status = statusLabels[pet.status];
   const PetIcon = pet.species.toLowerCase().includes('fel') ? Cat : Dog;
@@ -546,6 +551,14 @@ function PetCard({
         >
           <ShieldPlus className="size-4" />
           Prevención
+        </button>
+        <button
+          type="button"
+          onClick={onOpenTreatments}
+          className="col-span-2 flex h-9 items-center justify-center gap-2 rounded-xl bg-emerald-50 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
+        >
+          <Activity className="size-4" />
+          Tratamientos y evolución
         </button>
       </div>
     </article>

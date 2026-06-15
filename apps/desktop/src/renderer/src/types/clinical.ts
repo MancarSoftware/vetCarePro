@@ -198,11 +198,112 @@ export interface ClinicalMediaFile {
     complaint: string | null;
     occurredAt: string;
   } | null;
+  treatment: {
+    id: string;
+    diagnosis: string;
+    startDate: string;
+    status: TreatmentStatus;
+  } | null;
   uploadedBy: {
     id: string;
     firstName: string;
     lastName: string;
   };
+}
+
+export type TreatmentStatus =
+  | 'ACTIVE'
+  | 'COMPLETED'
+  | 'SUSPENDED'
+  | 'FOLLOW_UP';
+
+export type TreatmentEvolutionStatus =
+  | 'IMPROVING'
+  | 'STABLE'
+  | 'WORSENING'
+  | 'RECOVERED';
+
+export interface TreatmentEvolution {
+  id: string;
+  treatmentId: string;
+  createdById: string;
+  status: TreatmentEvolutionStatus;
+  title: string | null;
+  notes: string;
+  weightKg: number | null;
+  occurredAt: string;
+  nextReviewAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  };
+}
+
+export interface TreatmentMedia {
+  id: string;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  category: MediaCategory;
+  tags: string[];
+  createdAt: string;
+  contentUrl: string;
+}
+
+export interface Treatment {
+  id: string;
+  petId: string;
+  medicalRecordId: string | null;
+  veterinarianId: string;
+  diagnosis: string;
+  instructions: string;
+  medications: Medication[] | null;
+  dosage: string | null;
+  frequency: string | null;
+  durationDays: number | null;
+  startDate: string;
+  endDate: string | null;
+  status: TreatmentStatus;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  pet: {
+    id: string;
+    name: string;
+    species: string;
+    breed: string | null;
+    weightKg: number | null;
+    owner: PetOwner;
+  };
+  medicalRecord: {
+    id: string;
+    type: MedicalRecordType;
+    complaint: string | null;
+    occurredAt: string;
+  } | null;
+  veterinarian: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  };
+  evolutions: TreatmentEvolution[];
+  mediaFiles?: TreatmentMedia[];
+  _count: {
+    evolutions: number;
+    mediaFiles: number;
+  };
+}
+
+export interface TreatmentSummary {
+  total: number;
+  active: number;
+  followUp: number;
+  completed: number;
+  suspended: number;
+  overdue: number;
 }
 
 export type PreventiveCareStatus =

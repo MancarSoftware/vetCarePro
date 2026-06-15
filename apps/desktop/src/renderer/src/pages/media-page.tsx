@@ -54,6 +54,7 @@ import {
 interface MediaPageProps {
   initialPetId?: string;
   initialMedicalRecordId?: string;
+  initialTreatmentId?: string;
 }
 
 interface CategoryPresentation {
@@ -111,6 +112,7 @@ const MAX_FILE_SIZE = 15 * 1024 * 1024;
 export function MediaPage({
   initialPetId,
   initialMedicalRecordId,
+  initialTreatmentId,
 }: MediaPageProps) {
   const { request, requestBlob, user } = useAuth();
   const [pets, setPets] = useState<Pet[]>([]);
@@ -118,6 +120,9 @@ export function MediaPage({
   const [media, setMedia] = useState<ClinicalMediaFile[]>([]);
   const [total, setTotal] = useState(0);
   const [selectedPetId, setSelectedPetId] = useState(initialPetId ?? '');
+  const [selectedTreatmentId, setSelectedTreatmentId] = useState(
+    initialTreatmentId ?? '',
+  );
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [isLoadingPets, setIsLoadingPets] = useState(true);
@@ -182,7 +187,12 @@ export function MediaPage({
   );
 
   const loadMedia = useCallback(
-    async (petId: string, term: string, category: string) => {
+    async (
+      petId: string,
+      term: string,
+      category: string,
+      treatmentId: string,
+    ) => {
       if (!petId) {
         setMedia([]);
         setTotal(0);
@@ -196,6 +206,7 @@ export function MediaPage({
           petId,
           ...(term.trim() ? { search: term.trim() } : {}),
           ...(category ? { category } : {}),
+          ...(treatmentId ? { treatmentId } : {}),
         });
         const data = await request<PaginatedResponse<ClinicalMediaFile>>(
           `/media?${query.toString()}`,
@@ -226,11 +237,23 @@ export function MediaPage({
 
   useEffect(() => {
     const timer = window.setTimeout(
-      () => void loadMedia(selectedPetId, search, categoryFilter),
+      () =>
+        void loadMedia(
+          selectedPetId,
+          search,
+          categoryFilter,
+          selectedTreatmentId,
+        ),
       250,
     );
     return () => window.clearTimeout(timer);
-  }, [categoryFilter, loadMedia, search, selectedPetId]);
+  }, [
+    categoryFilter,
+    loadMedia,
+    search,
+    selectedPetId,
+    selectedTreatmentId,
+  ]);
 
   const selectedPet =
     pets.find((pet) => pet.id === selectedPetId) ?? null;
@@ -250,7 +273,12 @@ export function MediaPage({
     try {
       await request(`/media/${deletingMedia.id}`, { method: 'DELETE' });
       setDeletingMedia(null);
-      await loadMedia(selectedPetId, search, categoryFilter);
+      await loadMedia(
+        selectedPetId,
+        search,
+        categoryFilter,
+        selectedTreatmentId,
+      );
     } catch (deleteError) {
       setDeletingMedia(null);
       setError(
@@ -382,6 +410,7 @@ export function MediaPage({
                   value={selectedPetId}
                   onChange={(event) => {
                     setSelectedPetId(event.target.value);
+                    setSelectedTreatmentId('');
                     setSearch('');
                     setCategoryFilter('');
                   }}
@@ -453,6 +482,7 @@ export function MediaPage({
           pet={selectedPet}
           records={records}
           initialMedicalRecordId={initialMedicalRecordId}
+          treatmentEvidence={Boolean(selectedTreatmentId)}
           submitting={isUploading}
           onClose={() => setIsUploadOpen(false)}
           onSubmit={async ({ file, category, tags, medicalRecordId }) => {
@@ -466,10 +496,18 @@ export function MediaPage({
             if (medicalRecordId) {
               body.append('medicalRecordId', medicalRecordId);
             }
+            if (selectedTreatmentId) {
+              body.append('treatmentId', selectedTreatmentId);
+            }
             try {
               await request('/media', { method: 'POST', body });
               setIsUploadOpen(false);
-              await loadMedia(selectedPet.id, search, categoryFilter);
+              await loadMedia(
+                selectedPet.id,
+                search,
+                categoryFilter,
+                selectedTreatmentId,
+              );
             } catch (uploadError) {
               setError(
                 uploadError instanceof ApiError
@@ -667,6 +705,7 @@ function UploadMediaModal({
   pet,
   records,
   initialMedicalRecordId,
+  treatmentEvidence,
   submitting,
   onClose,
   onSubmit,
@@ -674,6 +713,7 @@ function UploadMediaModal({
   pet: Pet;
   records: MedicalRecord[];
   initialMedicalRecordId?: string;
+  treatmentEvidence?: boolean;
   submitting: boolean;
   onClose: () => void;
   onSubmit: (input: {
@@ -685,7 +725,9 @@ function UploadMediaModal({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
-  const [category, setCategory] = useState<MediaCategory>('OTHER');
+  const [category, setCategory] = useState<MediaCategory>(
+    treatmentEvidence ? 'EVOLUTION' : 'OTHER',
+  );
   const [tags, setTags] = useState('');
   const [medicalRecordId, setMedicalRecordId] = useState(
     initialMedicalRecordId &&

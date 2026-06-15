@@ -25,6 +25,7 @@ export type AppPage =
   | 'history'
   | 'media'
   | 'preventive'
+  | 'treatments'
   | 'users';
 
 interface NavigationItem {
@@ -77,7 +78,12 @@ const navigation: NavigationItem[] = [
     icon: Syringe,
     permission: 'vaccines.read',
   },
-  { id: null, label: 'Tratamientos', icon: HeartHandshake },
+  {
+    id: 'treatments',
+    label: 'Tratamientos',
+    icon: HeartHandshake,
+    permission: 'treatments.read',
+  },
   { id: null, label: 'Pagos', icon: CreditCard },
   { id: null, label: 'Inventario', icon: Boxes },
   { id: null, label: 'Reportes', icon: BarChart3 },

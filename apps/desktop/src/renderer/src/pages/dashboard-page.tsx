@@ -417,9 +417,11 @@ function getMetricCards(metrics: DashboardMetrics): MetricCardProps[] {
 export function DashboardPage({
   onOpenAppointments,
   onOpenPreventive,
+  onOpenTreatments,
 }: {
   onOpenAppointments?: () => void;
   onOpenPreventive?: () => void;
+  onOpenTreatments?: () => void;
 }) {
   const { user } = useAuth();
   const { data, error, isLoading, refresh } = useDashboard();
@@ -563,6 +565,17 @@ export function DashboardPage({
           <PanelHeader
             icon={HeartPulse}
             title="Evolución del tratamiento"
+            action={
+              onOpenTreatments ? (
+                <button
+                  type="button"
+                  onClick={onOpenTreatments}
+                  className="text-[11px] font-bold text-teal-600 hover:text-teal-700"
+                >
+                  Ver tratamientos
+                </button>
+              ) : undefined
+            }
           />
           {data.activeTreatments.length === 0 ? (
             <EmptyState

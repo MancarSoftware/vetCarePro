@@ -14,6 +14,7 @@ import { OwnersPage } from '@/pages/owners-page';
 import { PetsPage } from '@/pages/pets-page';
 import { PreventiveCarePage } from '@/pages/preventive-care-page';
 import { SetupPage } from '@/pages/setup-page';
+import { TreatmentsPage } from '@/pages/treatments-page';
 import { UsersPage } from '@/pages/users-page';
 import { useState } from 'react';
 
@@ -23,9 +24,14 @@ function AuthenticatedApp() {
   const [historyPetId, setHistoryPetId] = useState<string>();
   const [appointmentPetId, setAppointmentPetId] = useState<string>();
   const [preventivePetId, setPreventivePetId] = useState<string>();
+  const [treatmentTarget, setTreatmentTarget] = useState<{
+    petId?: string;
+    medicalRecordId?: string;
+  }>({});
   const [mediaTarget, setMediaTarget] = useState<{
     petId?: string;
     medicalRecordId?: string;
+    treatmentId?: string;
   }>({});
 
   if (!user) {
@@ -51,6 +57,10 @@ function AuthenticatedApp() {
           onOpenAppointments={(petId) => {
             setAppointmentPetId(petId);
             setCurrentPage('appointments');
+          }}
+          onOpenTreatments={(petId) => {
+            setTreatmentTarget({ petId });
+            setCurrentPage('treatments');
           }}
         />
       );
@@ -79,6 +89,10 @@ function AuthenticatedApp() {
             setPreventivePetId(petId);
             setCurrentPage('preventive');
           }}
+          onOpenTreatments={(petId, medicalRecordId) => {
+            setTreatmentTarget({ petId, medicalRecordId });
+            setCurrentPage('treatments');
+          }}
         />
       );
     }
@@ -87,11 +101,28 @@ function AuthenticatedApp() {
         <MediaPage
           initialPetId={mediaTarget.petId}
           initialMedicalRecordId={mediaTarget.medicalRecordId}
+          initialTreatmentId={mediaTarget.treatmentId}
         />
       );
     }
     if (currentPage === 'preventive') {
       return <PreventiveCarePage initialPetId={preventivePetId} />;
+    }
+    if (currentPage === 'treatments') {
+      return (
+        <TreatmentsPage
+          initialPetId={treatmentTarget.petId}
+          initialMedicalRecordId={treatmentTarget.medicalRecordId}
+          onOpenHistory={(petId) => {
+            setHistoryPetId(petId);
+            setCurrentPage('history');
+          }}
+          onOpenMedia={(petId, treatmentId) => {
+            setMediaTarget({ petId, treatmentId });
+            setCurrentPage('media');
+          }}
+        />
+      );
     }
     if (currentPage === 'users') return <UsersPage />;
     return (
@@ -104,6 +135,10 @@ function AuthenticatedApp() {
           setPreventivePetId(undefined);
           setCurrentPage('preventive');
         }}
+        onOpenTreatments={() => {
+          setTreatmentTarget({});
+          setCurrentPage('treatments');
+        }}
       />
     );
   };
@@ -115,6 +150,12 @@ function AuthenticatedApp() {
         onNavigate={(page) => {
           if (page === 'appointments') {
             setAppointmentPetId(undefined);
+          }
+          if (page === 'treatments') {
+            setTreatmentTarget({});
+          }
+          if (page === 'media') {
+            setMediaTarget({});
           }
           setCurrentPage(page);
         }}

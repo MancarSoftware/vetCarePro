@@ -12,6 +12,10 @@ export class MediaQueryDto extends PaginationQueryDto {
   medicalRecordId?: string;
 
   @IsOptional()
+  @IsUUID()
+  treatmentId?: string;
+
+  @IsOptional()
   @IsEnum(MediaCategory)
   category?: MediaCategory;
 }

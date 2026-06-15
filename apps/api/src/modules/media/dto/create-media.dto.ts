@@ -17,6 +17,11 @@ export class CreateMediaDto {
   @IsUUID()
   medicalRecordId?: string;
 
+  @IsOptional()
+  @Transform(({ value }) => (value === '' ? undefined : value))
+  @IsUUID()
+  treatmentId?: string;
+
   @IsEnum(MediaCategory)
   category!: MediaCategory;
 

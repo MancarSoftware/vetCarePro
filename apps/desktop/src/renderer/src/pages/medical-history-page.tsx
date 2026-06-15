@@ -109,10 +109,12 @@ export function MedicalHistoryPage({
   initialPetId,
   onOpenMedia,
   onOpenPreventive,
+  onOpenTreatments,
 }: {
   initialPetId?: string;
   onOpenMedia?: (petId: string, medicalRecordId?: string) => void;
   onOpenPreventive?: (petId: string) => void;
+  onOpenTreatments?: (petId: string, medicalRecordId?: string) => void;
 }) {
   const { request, user } = useAuth();
   const [pets, setPets] = useState<Pet[]>([]);
@@ -326,6 +328,16 @@ export function MedicalHistoryPage({
           </p>
         </div>
         <div className="flex gap-2">
+          {onOpenTreatments && (
+            <Button
+              onClick={() => onOpenTreatments(selectedPetId)}
+              disabled={!selectedPetId}
+              className="h-10 border border-emerald-200 bg-emerald-50 px-4 text-emerald-700 hover:bg-emerald-100"
+            >
+              <Pill className="size-4" />
+              Tratamientos
+            </Button>
+          )}
           {onOpenPreventive && (
             <Button
               onClick={() => onOpenPreventive(selectedPetId)}
@@ -492,6 +504,11 @@ export function MedicalHistoryPage({
                           ? () => onOpenPreventive(record.petId)
                           : undefined
                       }
+                      onOpenTreatments={
+                        onOpenTreatments
+                          ? () => onOpenTreatments(record.petId, record.id)
+                          : undefined
+                      }
                     />
                   ))}
                 </div>
@@ -614,6 +631,7 @@ function TimelineEntry({
   onDelete,
   onOpenMedia,
   onOpenPreventive,
+  onOpenTreatments,
 }: {
   record: MedicalRecord;
   isLast: boolean;
@@ -622,6 +640,7 @@ function TimelineEntry({
   onDelete: () => void;
   onOpenMedia?: () => void;
   onOpenPreventive?: () => void;
+  onOpenTreatments?: () => void;
 }) {
   const presentation = typePresentation[record.type];
   const Icon = presentation.icon;
@@ -659,8 +678,24 @@ function TimelineEntry({
                 {record.veterinarian.lastName}
               </p>
             </div>
-            {(canManage || onOpenMedia || onOpenPreventive) && (
+            {(canManage ||
+              onOpenMedia ||
+              onOpenPreventive ||
+              onOpenTreatments) && (
               <div className="flex items-center gap-1">
+                {onOpenTreatments && (
+                  <button
+                    type="button"
+                    onClick={onOpenTreatments}
+                    title="Abrir tratamientos"
+                    className="mr-1 flex h-8 items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100"
+                  >
+                    <Pill className="size-3.5" />
+                    {record._count.treatments > 0
+                      ? `${record._count.treatments} tratamiento`
+                      : 'Crear tratamiento'}
+                  </button>
+                )}
                 {onOpenPreventive &&
                   record._count.vaccines + record._count.dewormings > 0 && (
                     <button

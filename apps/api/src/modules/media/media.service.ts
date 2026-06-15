@@ -24,6 +24,7 @@ export class MediaService {
       ...(query.medicalRecordId
         ? { medicalRecordId: query.medicalRecordId }
         : {}),
+      ...(query.treatmentId ? { treatmentId: query.treatmentId } : {}),
       ...(query.category ? { category: query.category } : {}),
       ...(search
         ? {
@@ -63,6 +64,14 @@ export class MediaService {
               occurredAt: true,
             },
           },
+          treatment: {
+            select: {
+              id: true,
+              diagnosis: true,
+              startDate: true,
+              status: true,
+            },
+          },
           uploadedBy: {
             select: {
               id: true,
@@ -96,6 +105,9 @@ export class MediaService {
     if (dto.medicalRecordId) {
       await this.ensureMedicalRecord(dto.medicalRecordId, dto.petId);
     }
+    if (dto.treatmentId) {
+      await this.ensureTreatment(dto.treatmentId, dto.petId);
+    }
 
     const stored = await this.storage.store(file, dto.petId);
     try {
@@ -104,6 +116,7 @@ export class MediaService {
           data: {
             petId: dto.petId,
             medicalRecordId: dto.medicalRecordId,
+            treatmentId: dto.treatmentId,
             uploadedById: actorId,
             filePath: stored.absolutePath,
             originalName: stored.originalName,
@@ -130,6 +143,14 @@ export class MediaService {
                 occurredAt: true,
               },
             },
+            treatment: {
+              select: {
+                id: true,
+                diagnosis: true,
+                startDate: true,
+                status: true,
+              },
+            },
             uploadedBy: {
               select: {
                 id: true,
@@ -148,6 +169,7 @@ export class MediaService {
             changes: {
               petId: created.petId,
               medicalRecordId: created.medicalRecordId,
+              treatmentId: created.treatmentId,
               originalName: created.originalName,
               mimeType: created.mimeType,
               sizeBytes: Number(created.sizeBytes),
@@ -193,6 +215,14 @@ export class MediaService {
               type: true,
               complaint: true,
               occurredAt: true,
+            },
+          },
+          treatment: {
+            select: {
+              id: true,
+              diagnosis: true,
+              startDate: true,
+              status: true,
             },
           },
           uploadedBy: {
@@ -265,6 +295,18 @@ export class MediaService {
     if (!record) {
       throw new NotFoundException(
         'La entrada clínica no existe o pertenece a otra mascota',
+      );
+    }
+  }
+
+  private async ensureTreatment(treatmentId: string, petId: string) {
+    const treatment = await this.prisma.treatment.findFirst({
+      where: { id: treatmentId, petId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!treatment) {
+      throw new NotFoundException(
+        'El tratamiento no existe o pertenece a otra mascota',
       );
     }
   }

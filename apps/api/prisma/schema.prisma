@@ -61,6 +61,13 @@ enum TreatmentStatus {
   FOLLOW_UP
 }
 
+enum TreatmentEvolutionStatus {
+  IMPROVING
+  STABLE
+  WORSENING
+  RECOVERED
+}
+
 enum PreventiveCareStatus {
   APPLIED
   PENDING
@@ -133,6 +140,7 @@ model User {
   appointments       Appointment[]       @relation("AppointmentVeterinarian")
   medicalRecords     MedicalRecord[]     @relation("MedicalRecordVeterinarian")
   treatments         Treatment[]         @relation("TreatmentVeterinarian")
+  treatmentEvolutions TreatmentEvolution[] @relation("TreatmentEvolutionAuthor")
   vaccines           Vaccine[]           @relation("VaccineVeterinarian")
   dewormings         Deworming[]         @relation("DewormingVeterinarian")
   mediaFiles         MediaFile[]         @relation("MediaUploadedBy")
@@ -341,11 +349,34 @@ model Treatment {
   medicalRecord   MedicalRecord?  @relation(fields: [medicalRecordId], references: [id], onDelete: SetNull)
   veterinarian    User            @relation("TreatmentVeterinarian", fields: [veterinarianId], references: [id], onDelete: Restrict)
   mediaFiles      MediaFile[]
+  evolutions      TreatmentEvolution[]
 
   @@index([petId, status])
   @@index([status, endDate])
   @@index([deletedAt])
   @@map("treatments")
+}
+
+model TreatmentEvolution {
+  id           String                   @id @default(uuid()) @db.Uuid
+  treatmentId  String                   @db.Uuid
+  createdById  String                   @db.Uuid
+  status       TreatmentEvolutionStatus
+  title        String?                  @db.VarChar(160)
+  notes        String                   @db.Text
+  weightKg     Decimal?                 @db.Decimal(7, 2)
+  occurredAt   DateTime
+  nextReviewAt DateTime?
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+  deletedAt    DateTime?
+  treatment    Treatment                @relation(fields: [treatmentId], references: [id], onDelete: Cascade)
+  createdBy    User                     @relation("TreatmentEvolutionAuthor", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([treatmentId, occurredAt])
+  @@index([status, occurredAt])
+  @@index([deletedAt])
+  @@map("treatment_evolutions")
 }
 
 model Vaccine {
@@ -420,6 +451,7 @@ model MediaFile {
 
   @@index([petId, category])
   @@index([medicalRecordId])
+  @@index([treatmentId])
   @@index([deletedAt])
   @@map("media_files")
 }
