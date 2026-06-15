@@ -419,11 +419,13 @@ export function DashboardPage({
   onOpenPreventive,
   onOpenTreatments,
   onOpenInventory,
+  onOpenPayments,
 }: {
   onOpenAppointments?: () => void;
   onOpenPreventive?: () => void;
   onOpenTreatments?: () => void;
   onOpenInventory?: () => void;
+  onOpenPayments?: () => void;
 }) {
   const { user } = useAuth();
   const { data, error, isLoading, refresh } = useDashboard();
@@ -632,9 +634,20 @@ export function DashboardPage({
             icon={CircleDollarSign}
             title="Ingresos últimos 6 meses"
             action={
-              <span className="text-[11px] font-medium text-slate-400">
-                Mensual
-              </span>
+              onOpenPayments &&
+              user?.permissions.includes('payments.read') ? (
+                <button
+                  type="button"
+                  onClick={onOpenPayments}
+                  className="text-[11px] font-bold text-teal-600 hover:text-teal-700"
+                >
+                  Ver pagos
+                </button>
+              ) : (
+                <span className="text-[11px] font-medium text-slate-400">
+                  Mensual
+                </span>
+              )
             }
           />
           <div className="h-[220px] px-3 pb-3 pt-5">

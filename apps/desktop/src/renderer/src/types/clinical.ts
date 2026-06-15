@@ -455,3 +455,117 @@ export interface InventorySummary {
   expiredBatches: number;
   inventoryValue: number;
 }
+
+export type PaymentMethod =
+  | 'CASH'
+  | 'BANK_TRANSFER'
+  | 'CARD'
+  | 'OTHER';
+
+export type PaymentStatus =
+  | 'PAID'
+  | 'PENDING'
+  | 'PARTIAL'
+  | 'VOIDED';
+
+export type PaymentItemType = 'SERVICE' | 'PRODUCT' | 'OTHER';
+
+export interface PaymentItem {
+  id: string;
+  paymentId: string;
+  productId: string | null;
+  type: PaymentItemType;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  discount: number;
+  total: number;
+  createdAt: string;
+  product?: {
+    id: string;
+    sku: string | null;
+    name: string;
+    unit: string;
+  } | null;
+}
+
+export interface PaymentTransaction {
+  id: string;
+  paymentId: string;
+  createdById: string;
+  amount: number;
+  method: PaymentMethod;
+  reference: string | null;
+  notes: string | null;
+  receivedAt: string;
+  createdAt: string;
+  createdBy: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  };
+}
+
+export interface Payment {
+  id: string;
+  ownerId: string;
+  petId: string | null;
+  appointmentId: string | null;
+  createdById: string;
+  invoiceNumber: string;
+  reference: string | null;
+  description: string;
+  subtotal: number;
+  discount: number;
+  amount: number;
+  paidAmount: number;
+  balance: number;
+  method: PaymentMethod;
+  status: PaymentStatus;
+  paidAt: string | null;
+  dueAt: string | null;
+  voidedAt: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  owner: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+    email?: string | null;
+    nationalId?: string | null;
+  };
+  pet: {
+    id: string;
+    name: string;
+    species: string;
+    breed: string | null;
+  } | null;
+  appointment: {
+    id: string;
+    type: AppointmentType;
+    status?: AppointmentStatus;
+    startsAt: string;
+  } | null;
+  createdBy?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  };
+  items: PaymentItem[];
+  transactions?: PaymentTransaction[];
+  _count: {
+    items: number;
+    transactions: number;
+  };
+}
+
+export interface PaymentSummary {
+  totalDocuments: number;
+  pendingDocuments: number;
+  overdueDocuments: number;
+  outstanding: number;
+  collectedToday: number;
+  collectedMonth: number;
+}

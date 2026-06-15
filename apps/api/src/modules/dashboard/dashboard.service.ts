@@ -53,12 +53,15 @@ export class DashboardService {
           pet: { deletedAt: null, status: 'ACTIVE' },
         },
       }),
-      this.prisma.payment.aggregate({
+      this.prisma.paymentTransaction.aggregate({
         _sum: { amount: true },
         where: {
-          status: 'PAID',
-          paidAt: { gte: monthStart },
-          deletedAt: null,
+          receivedAt: { gte: monthStart },
+          voidedAt: null,
+          payment: {
+            deletedAt: null,
+            status: { not: 'VOIDED' },
+          },
         },
       }),
       this.prisma.appointment.findMany({
@@ -157,13 +160,16 @@ export class DashboardService {
           },
         },
       }),
-      this.prisma.payment.findMany({
+      this.prisma.paymentTransaction.findMany({
         where: {
-          status: 'PAID',
-          paidAt: { gte: chartStart },
-          deletedAt: null,
+          receivedAt: { gte: chartStart },
+          voidedAt: null,
+          payment: {
+            deletedAt: null,
+            status: { not: 'VOIDED' },
+          },
         },
-        select: { amount: true, paidAt: true },
+        select: { amount: true, receivedAt: true },
       }),
     ]);
 
@@ -202,7 +208,7 @@ export class DashboardService {
 
   private buildIncomeSeries(
     now: Date,
-    payments: Array<{ amount: { toNumber(): number }; paidAt: Date | null }>,
+    payments: Array<{ amount: { toNumber(): number }; receivedAt: Date }>,
   ): Array<{ month: string; total: number }> {
     const formatter = new Intl.DateTimeFormat('es-EC', { month: 'short' });
 
@@ -211,8 +217,8 @@ export class DashboardService {
       const total = payments
         .filter(
           (payment) =>
-            payment.paidAt?.getFullYear() === date.getFullYear() &&
-            payment.paidAt.getMonth() === date.getMonth(),
+            payment.receivedAt.getFullYear() === date.getFullYear() &&
+            payment.receivedAt.getMonth() === date.getMonth(),
         )
         .reduce((sum, payment) => sum + payment.amount.toNumber(), 0);
 

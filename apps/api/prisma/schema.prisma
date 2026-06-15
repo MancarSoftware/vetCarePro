@@ -109,6 +109,12 @@ enum PaymentStatus {
   VOIDED
 }
 
+enum PaymentItemType {
+  SERVICE
+  PRODUCT
+  OTHER
+}
+
 enum AuditAction {
   CREATE
   UPDATE
@@ -146,6 +152,7 @@ model User {
   mediaFiles         MediaFile[]         @relation("MediaUploadedBy")
   inventoryMovements InventoryMovement[] @relation("InventoryMovementUser")
   payments           Payment[]           @relation("PaymentCreatedBy")
+  paymentTransactions PaymentTransaction[] @relation("PaymentTransactionUser")
   auditLogs          AuditLog[]          @relation("AuditActor")
   settings           Setting[]           @relation("SettingUpdatedBy")
   backups            BackupRecord[]      @relation("BackupCreatedBy")
@@ -262,6 +269,7 @@ model Pet {
   vaccines             Vaccine[]
   dewormings           Deworming[]
   mediaFiles           MediaFile[]
+  payments             Payment[]
 
   @@index([ownerId, deletedAt])
   @@index([name])
@@ -474,6 +482,7 @@ model InventoryProduct {
   deletedAt       DateTime?
   batches         InventoryBatch[]
   movements       InventoryMovement[]
+  paymentItems    PaymentItem[]
 
   @@index([name])
   @@index([category, isActive])
@@ -508,6 +517,7 @@ model InventoryMovement {
   id            String                @id @default(uuid()) @db.Uuid
   productId     String                @db.Uuid
   batchId       String?               @db.Uuid
+  paymentItemId String?               @db.Uuid
   performedById String                @db.Uuid
   type          InventoryMovementType
   quantity      Decimal               @db.Decimal(12, 3)
@@ -518,10 +528,12 @@ model InventoryMovement {
   createdAt     DateTime              @default(now())
   product       InventoryProduct      @relation(fields: [productId], references: [id], onDelete: Restrict)
   batch         InventoryBatch?       @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  paymentItem   PaymentItem?          @relation(fields: [paymentItemId], references: [id], onDelete: SetNull)
   performedBy   User                  @relation("InventoryMovementUser", fields: [performedById], references: [id], onDelete: Restrict)
 
   @@index([productId, createdAt])
   @@index([batchId, createdAt])
+  @@index([paymentItemId])
   @@index([type, createdAt])
   @@map("inventory_movements")
 }
@@ -529,28 +541,77 @@ model InventoryMovement {
 model Payment {
   id             String        @id @default(uuid()) @db.Uuid
   ownerId        String        @db.Uuid
+  petId          String?       @db.Uuid
   appointmentId  String?       @db.Uuid
   createdById    String        @db.Uuid
+  invoiceNumber  String        @unique @db.VarChar(50)
   reference      String?       @unique @db.VarChar(80)
   description    String        @db.VarChar(255)
+  subtotal       Decimal       @default(0) @db.Decimal(12, 2)
+  discount       Decimal       @default(0) @db.Decimal(12, 2)
   amount         Decimal       @db.Decimal(12, 2)
+  paidAmount     Decimal       @default(0) @db.Decimal(12, 2)
   method         PaymentMethod
   status         PaymentStatus @default(PENDING)
   paidAt         DateTime?
   dueAt          DateTime?
+  voidedAt       DateTime?
   notes          String?       @db.Text
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   deletedAt      DateTime?
   owner          Owner         @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  pet            Pet?          @relation(fields: [petId], references: [id], onDelete: SetNull)
   appointment    Appointment?  @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
   createdBy      User          @relation("PaymentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  items          PaymentItem[]
+  transactions   PaymentTransaction[]
 
   @@index([status, paidAt])
   @@index([ownerId, createdAt])
+  @@index([petId, createdAt])
   @@index([appointmentId])
   @@index([deletedAt])
   @@map("payments")
+}
+
+model PaymentItem {
+  id                 String              @id @default(uuid()) @db.Uuid
+  paymentId          String              @db.Uuid
+  productId          String?             @db.Uuid
+  type               PaymentItemType
+  description        String              @db.VarChar(255)
+  quantity           Decimal             @db.Decimal(12, 3)
+  unitPrice          Decimal             @db.Decimal(12, 2)
+  discount           Decimal             @default(0) @db.Decimal(12, 2)
+  total              Decimal             @db.Decimal(12, 2)
+  createdAt          DateTime            @default(now())
+  payment            Payment             @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  product            InventoryProduct?   @relation(fields: [productId], references: [id], onDelete: Restrict)
+  inventoryMovements InventoryMovement[]
+
+  @@index([paymentId])
+  @@index([productId])
+  @@map("payment_items")
+}
+
+model PaymentTransaction {
+  id            String        @id @default(uuid()) @db.Uuid
+  paymentId     String        @db.Uuid
+  createdById   String        @db.Uuid
+  amount        Decimal       @db.Decimal(12, 2)
+  method        PaymentMethod
+  reference     String?       @db.VarChar(100)
+  notes         String?       @db.Text
+  receivedAt    DateTime      @default(now())
+  voidedAt      DateTime?
+  createdAt     DateTime      @default(now())
+  payment       Payment       @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  createdBy     User          @relation("PaymentTransactionUser", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([paymentId, receivedAt])
+  @@index([receivedAt, voidedAt])
+  @@map("payment_transactions")
 }
 
 model AuditLog {

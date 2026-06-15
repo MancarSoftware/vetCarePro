@@ -8,6 +8,7 @@ import { InventoryModule } from './modules/inventory/inventory.module';
 import { MedicalRecordsModule } from './modules/medical-records/medical-records.module';
 import { MediaModule } from './modules/media/media.module';
 import { OwnersModule } from './modules/owners/owners.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 import { PetsModule } from './modules/pets/pets.module';
 import { PreventiveCareModule } from './modules/preventive-care/preventive-care.module';
 import { RolesModule } from './modules/roles/roles.module';
@@ -30,6 +31,7 @@ import { SecurityModule } from './security/security.module';
     UsersModule,
     RolesModule,
     OwnersModule,
+    PaymentsModule,
     PetsModule,
     AppointmentsModule,
     MedicalRecordsModule,

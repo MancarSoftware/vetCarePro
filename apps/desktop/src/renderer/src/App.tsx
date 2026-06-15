@@ -12,6 +12,7 @@ import { InventoryPage } from '@/pages/inventory-page';
 import { MediaPage } from '@/pages/media-page';
 import { MedicalHistoryPage } from '@/pages/medical-history-page';
 import { OwnersPage } from '@/pages/owners-page';
+import { PaymentsPage } from '@/pages/payments-page';
 import { PetsPage } from '@/pages/pets-page';
 import { PreventiveCarePage } from '@/pages/preventive-care-page';
 import { SetupPage } from '@/pages/setup-page';
@@ -126,6 +127,7 @@ function AuthenticatedApp() {
       );
     }
     if (currentPage === 'inventory') return <InventoryPage />;
+    if (currentPage === 'payments') return <PaymentsPage />;
     if (currentPage === 'users') return <UsersPage />;
     return (
       <DashboardPage
@@ -142,6 +144,7 @@ function AuthenticatedApp() {
           setCurrentPage('treatments');
         }}
         onOpenInventory={() => setCurrentPage('inventory')}
+        onOpenPayments={() => setCurrentPage('payments')}
       />
     );
   };

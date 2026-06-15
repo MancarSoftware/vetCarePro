@@ -26,6 +26,7 @@ export type AppPage =
   | 'media'
   | 'preventive'
   | 'treatments'
+  | 'payments'
   | 'inventory'
   | 'users';
 
@@ -85,7 +86,12 @@ const navigation: NavigationItem[] = [
     icon: HeartHandshake,
     permission: 'treatments.read',
   },
-  { id: null, label: 'Pagos', icon: CreditCard },
+  {
+    id: 'payments',
+    label: 'Pagos',
+    icon: CreditCard,
+    permission: 'payments.read',
+  },
   {
     id: 'inventory',
     label: 'Inventario',
