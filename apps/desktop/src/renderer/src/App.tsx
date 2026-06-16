@@ -5,6 +5,7 @@ import {
 import { Topbar } from '@/components/layout/topbar';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { AppointmentsPage } from '@/pages/appointments-page';
+import { BackupsPage } from '@/pages/backups-page';
 import { DashboardPage } from '@/pages/dashboard-page';
 import { LoadingPage } from '@/pages/loading-page';
 import { LoginPage } from '@/pages/login-page';
@@ -130,6 +131,7 @@ function AuthenticatedApp() {
     if (currentPage === 'inventory') return <InventoryPage />;
     if (currentPage === 'payments') return <PaymentsPage />;
     if (currentPage === 'reports') return <ReportsPage />;
+    if (currentPage === 'backups') return <BackupsPage />;
     if (currentPage === 'users') return <UsersPage />;
     return (
       <DashboardPage

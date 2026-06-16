@@ -4,6 +4,7 @@ import {
   CalendarDays,
   ClipboardPlus,
   CreditCard,
+  Database,
   HeartHandshake,
   Images,
   LayoutDashboard,
@@ -29,6 +30,7 @@ export type AppPage =
   | 'payments'
   | 'inventory'
   | 'reports'
+  | 'backups'
   | 'users';
 
 interface NavigationItem {
@@ -104,6 +106,12 @@ const navigation: NavigationItem[] = [
     label: 'Reportes',
     icon: BarChart3,
     permission: 'reports.read',
+  },
+  {
+    id: 'backups',
+    label: 'Backups',
+    icon: Database,
+    permission: 'backups.manage',
   },
   {
     id: 'users',

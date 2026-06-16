@@ -631,3 +631,33 @@ export interface ReportsSummary {
     petsRegistered: number;
   };
 }
+
+export type BackupStatus = 'PENDING' | 'COMPLETED' | 'FAILED';
+
+export interface BackupRecord {
+  id: string;
+  status: BackupStatus;
+  databasePath: string | null;
+  filesPath: string | null;
+  sizeBytes: number | null;
+  errorMessage: string | null;
+  createdById: string | null;
+  createdAt: string;
+  completedAt: string | null;
+  createdBy: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  } | null;
+}
+
+export interface BackupSummary {
+  backupPath: string;
+  uploadsPath: string;
+  totalBackups: number;
+  completed: number;
+  failed: number;
+  pending: number;
+  totalSizeBytes: number;
+  lastCompleted: BackupRecord | null;
+}
