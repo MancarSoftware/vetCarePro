@@ -15,6 +15,7 @@ import { OwnersPage } from '@/pages/owners-page';
 import { PaymentsPage } from '@/pages/payments-page';
 import { PetsPage } from '@/pages/pets-page';
 import { PreventiveCarePage } from '@/pages/preventive-care-page';
+import { ReportsPage } from '@/pages/reports-page';
 import { SetupPage } from '@/pages/setup-page';
 import { TreatmentsPage } from '@/pages/treatments-page';
 import { UsersPage } from '@/pages/users-page';
@@ -128,6 +129,7 @@ function AuthenticatedApp() {
     }
     if (currentPage === 'inventory') return <InventoryPage />;
     if (currentPage === 'payments') return <PaymentsPage />;
+    if (currentPage === 'reports') return <ReportsPage />;
     if (currentPage === 'users') return <UsersPage />;
     return (
       <DashboardPage

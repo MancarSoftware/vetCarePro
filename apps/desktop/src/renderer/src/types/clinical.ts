@@ -569,3 +569,65 @@ export interface PaymentSummary {
   collectedToday: number;
   collectedMonth: number;
 }
+
+export type ReportSection =
+  | 'all'
+  | 'financial'
+  | 'appointments'
+  | 'clinical'
+  | 'inventory';
+
+export interface ReportsSummary {
+  generatedAt: string;
+  range: {
+    from: string;
+    to: string;
+  };
+  financial: {
+    income: number;
+    outstanding: number;
+    overdueAmount: number;
+    paidDocuments: number;
+    pendingDocuments: number;
+    averageTicket: number;
+    incomeByMonth: Array<{ month: string; total: number }>;
+  };
+  appointments: {
+    total: number;
+    completed: number;
+    cancelled: number;
+    noShow: number;
+    pending: number;
+    confirmed: number;
+    byType: Array<{ type: AppointmentType; count: number }>;
+    byStatus: Array<{ status: AppointmentStatus; count: number }>;
+  };
+  clinical: {
+    medicalRecords: number;
+    vaccinesApplied: number;
+    vaccinesPending: number;
+    vaccinesOverdue: number;
+    dewormingsApplied: number;
+    dewormingsPending: number;
+    dewormingsOverdue: number;
+    treatmentsActive: number;
+    treatmentsFollowUp: number;
+    treatmentsCompleted: number;
+  };
+  inventory: {
+    lowStock: number;
+    outOfStock: number;
+    expiringSoon: number;
+    inventoryValue: number;
+    productsSold: Array<{
+      productId: string | null;
+      name: string;
+      quantity: number;
+      total: number;
+    }>;
+  };
+  clients: {
+    ownersRegistered: number;
+    petsRegistered: number;
+  };
+}
