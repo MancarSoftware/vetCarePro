@@ -1,0 +1,39 @@
+appId: com.mancarsoftware.vetcarepro
+productName: VetCare Pro
+copyright: Copyright © 2026 MancarSoftware
+
+directories:
+  output: dist
+
+files:
+  - out/**
+  - package.json
+
+extraResources:
+  - from: ../../docker-compose.yml
+    to: runtime/docker-compose.yml
+  - from: ../../.env.example
+    to: runtime/.env.example
+  - from: ../../README.md
+    to: runtime/README.md
+
+asar: true
+compression: maximum
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: VetCare-Pro-Setup-${version}-${arch}.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: VetCare Pro
+  uninstallDisplayName: VetCare Pro
+
+publish: null
