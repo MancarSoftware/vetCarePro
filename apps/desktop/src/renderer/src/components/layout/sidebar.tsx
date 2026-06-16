@@ -31,7 +31,8 @@ export type AppPage =
   | 'inventory'
   | 'reports'
   | 'backups'
-  | 'users';
+  | 'users'
+  | 'settings';
 
 interface NavigationItem {
   id: AppPage | null;
@@ -119,7 +120,12 @@ const navigation: NavigationItem[] = [
     icon: UserRound,
     permission: 'users.read',
   },
-  { id: null, label: 'Configuración', icon: Settings },
+  {
+    id: 'settings',
+    label: 'Configuración',
+    icon: Settings,
+    permission: 'settings.manage',
+  },
 ];
 
 export function Sidebar({

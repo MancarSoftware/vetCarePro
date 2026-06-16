@@ -661,3 +661,58 @@ export interface BackupSummary {
   totalSizeBytes: number;
   lastCompleted: BackupRecord | null;
 }
+
+export interface ClinicSettings {
+  name: string;
+  legalName: string;
+  taxId: string;
+  phone: string;
+  email: string;
+  address: string;
+  city: string;
+  country: string;
+  website: string;
+  logoPath: string;
+  notes: string;
+}
+
+export interface SystemPreferences {
+  currency: 'USD';
+  locale: 'es-EC';
+  timezone: string;
+  dateFormat: 'dd/MM/yyyy' | 'yyyy-MM-dd';
+  appointmentSlotMinutes: number;
+  vaccineAlertDays: number;
+  backupReminderDays: number;
+  enableAuditLog: boolean;
+}
+
+export interface LocalSettingsInfo {
+  uploadsPath: string;
+  backupsPath: string;
+  apiHost: string;
+  apiPort: number;
+  databaseHost: string;
+  databasePort: string;
+  databaseName: string;
+  databaseSchema: string;
+  postgresContainer: string;
+  lanReady: boolean;
+}
+
+export interface SettingsMetadata {
+  clinicUpdatedAt: string | null;
+  preferencesUpdatedAt: string | null;
+  updatedBy: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  } | null;
+}
+
+export interface AppSettings {
+  clinic: ClinicSettings;
+  preferences: SystemPreferences;
+  local: LocalSettingsInfo;
+  metadata: SettingsMetadata;
+}

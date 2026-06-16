@@ -14,6 +14,7 @@ import { PetsModule } from './modules/pets/pets.module';
 import { PreventiveCareModule } from './modules/preventive-care/preventive-care.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { RolesModule } from './modules/roles/roles.module';
+import { SettingsModule } from './modules/settings/settings.module';
 import { TreatmentsModule } from './modules/treatments/treatments.module';
 import { UsersModule } from './modules/users/users.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -42,6 +43,7 @@ import { SecurityModule } from './security/security.module';
     PreventiveCareModule,
     TreatmentsModule,
     ReportsModule,
+    SettingsModule,
     DashboardModule,
   ],
 })

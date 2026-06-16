@@ -17,6 +17,7 @@ import { PaymentsPage } from '@/pages/payments-page';
 import { PetsPage } from '@/pages/pets-page';
 import { PreventiveCarePage } from '@/pages/preventive-care-page';
 import { ReportsPage } from '@/pages/reports-page';
+import { SettingsPage } from '@/pages/settings-page';
 import { SetupPage } from '@/pages/setup-page';
 import { TreatmentsPage } from '@/pages/treatments-page';
 import { UsersPage } from '@/pages/users-page';
@@ -133,6 +134,7 @@ function AuthenticatedApp() {
     if (currentPage === 'reports') return <ReportsPage />;
     if (currentPage === 'backups') return <BackupsPage />;
     if (currentPage === 'users') return <UsersPage />;
+    if (currentPage === 'settings') return <SettingsPage />;
     return (
       <DashboardPage
         onOpenAppointments={() => {

@@ -8,5 +8,6 @@ import { BackupsService } from './backups.service';
   imports: [AuthModule, MediaModule],
   controllers: [BackupsController],
   providers: [BackupsService],
+  exports: [BackupsService],
 })
 export class BackupsModule {}
