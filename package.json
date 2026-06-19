@@ -25,7 +25,8 @@
     "db:generate": "npm run db:generate -w @vetcare/api",
     "db:migrate": "npm run db:migrate -w @vetcare/api",
     "db:deploy": "npm run db:deploy -w @vetcare/api",
-    "db:studio": "npm run db:studio -w @vetcare/api"
+    "db:studio": "npm run db:studio -w @vetcare/api",
+    "db:seed:demo": "npm run db:seed:demo -w @vetcare/api"
   },
   "engines": {
     "node": ">=22.12.0",
