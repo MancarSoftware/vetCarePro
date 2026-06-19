@@ -31,6 +31,14 @@ function getRefreshTokenPath(): string {
   return join(app.getPath('userData'), 'auth', REFRESH_TOKEN_FILE);
 }
 
+function getWindowIconPath(): string | undefined {
+  const iconPath = app.isPackaged
+    ? join(process.resourcesPath, 'icon.ico')
+    : join(__dirname, '../../build/icon.ico');
+
+  return existsSync(iconPath) ? iconPath : undefined;
+}
+
 function runtimeEnv(): NodeJS.ProcessEnv {
   return {
     ...process.env,
@@ -343,6 +351,7 @@ function createWindow(): void {
     autoHideMenuBar: true,
     backgroundColor: '#f7f9fb',
     title: 'VetCare Pro',
+    icon: getWindowIconPath(),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: true,

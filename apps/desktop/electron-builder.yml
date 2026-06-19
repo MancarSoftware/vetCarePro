@@ -1,6 +1,6 @@
 appId: com.mancarsoftware.vetcarepro
 productName: VetCare Pro
-copyright: Copyright © 2026 MancarSoftware
+copyright: Copyright (c) 2026 MancarSoftware
 
 directories:
   output: dist
@@ -12,11 +12,14 @@ files:
 extraResources:
   - from: ../../release/runtime
     to: runtime
+  - from: build/icon.ico
+    to: icon.ico
 
 asar: true
 compression: maximum
 
 win:
+  icon: build/icon.ico
   target:
     - target: nsis
       arch:

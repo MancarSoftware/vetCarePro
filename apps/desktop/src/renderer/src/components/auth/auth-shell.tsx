@@ -1,5 +1,6 @@
-import { HeartHandshake, ShieldCheck } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { BrandLogo } from '@/components/brand/brand-logo';
 
 export function AuthShell({
   eyebrow,
@@ -18,14 +19,12 @@ export function AuthShell({
         <div className="absolute -left-28 top-28 size-80 rounded-full bg-white/10 blur-3xl" />
         <div className="absolute -bottom-20 right-0 size-96 rounded-full bg-cyan-300/20 blur-3xl" />
 
-        <div className="relative flex items-center gap-3">
-          <div className="grid size-12 place-items-center rounded-2xl bg-white/15 backdrop-blur">
-            <HeartHandshake className="size-7" />
-          </div>
-          <div className="text-2xl font-bold tracking-[-0.03em]">
-            VetCare Pro
-          </div>
-        </div>
+        <BrandLogo
+          inverted
+          className="relative"
+          iconClassName="size-14 drop-shadow-lg"
+          textClassName="text-2xl"
+        />
 
         <div className="relative my-auto max-w-xl">
           <span className="inline-flex rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em]">
@@ -61,12 +60,7 @@ export function AuthShell({
       <main className="flex min-h-screen items-center justify-center bg-[#f7f9fb] px-6 py-10">
         <div className="w-full max-w-md">
           <div className="mb-8 lg:hidden">
-            <div className="flex items-center gap-3 text-xl font-bold text-slate-800">
-              <div className="grid size-10 place-items-center rounded-xl bg-teal-600 text-white">
-                <HeartHandshake className="size-5" />
-              </div>
-              VetCare <span className="-ml-2 text-teal-600">Pro</span>
-            </div>
+            <BrandLogo iconClassName="size-12" textClassName="text-xl" />
           </div>
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-teal-600">
             {eyebrow}

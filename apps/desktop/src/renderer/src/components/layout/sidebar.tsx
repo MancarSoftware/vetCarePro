@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { AuthUser } from '@/types/auth';
+import { BrandLogo } from '@/components/brand/brand-logo';
 
 export type AppPage =
   | 'dashboard'
@@ -139,13 +140,8 @@ export function Sidebar({
 }) {
   return (
     <aside className="fixed inset-y-0 left-0 z-30 flex w-[246px] flex-col overflow-y-auto border-r border-slate-200 bg-white px-3 py-4">
-      <div className="flex h-16 items-center gap-3 px-4">
-        <div className="grid size-10 place-items-center rounded-xl bg-teal-600 text-white shadow-lg shadow-teal-600/20">
-          <HeartHandshake className="size-6" />
-        </div>
-        <div className="text-[22px] font-bold tracking-[-0.03em] text-slate-700">
-          VetCare <span className="text-teal-600">Pro</span>
-        </div>
+      <div className="flex h-16 items-center px-4">
+        <BrandLogo iconClassName="size-12" textClassName="text-[22px]" />
       </div>
 
       <nav className="mt-2 space-y-0.5">

@@ -1,12 +1,16 @@
-import { HeartHandshake, LoaderCircle } from 'lucide-react';
+import { LoaderCircle } from 'lucide-react';
+import logoUrl from '@/assets/vetcare-logo.svg';
 
 export function LoadingPage() {
   return (
     <div className="grid min-h-screen place-items-center bg-[#f7f9fb]">
       <div className="text-center">
-        <div className="mx-auto grid size-16 place-items-center rounded-2xl bg-teal-600 text-white shadow-xl shadow-teal-600/20">
-          <HeartHandshake className="size-8" />
-        </div>
+        <img
+          src={logoUrl}
+          alt="VetCare Pro"
+          className="mx-auto size-20 drop-shadow-xl"
+          draggable={false}
+        />
         <p className="mt-5 text-xl font-bold tracking-[-0.03em] text-slate-800">
           VetCare <span className="text-teal-600">Pro</span>
         </p>

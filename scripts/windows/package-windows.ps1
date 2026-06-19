@@ -28,6 +28,7 @@ if ($LASTEXITCODE -ne 0) {
 Push-Location $RepoRoot
 try {
   $env:CSC_IDENTITY_AUTO_DISCOVERY = 'false'
+  Invoke-Checked 'Generando assets de marca' { & npm run brand:assets }
   Invoke-Checked 'Compilando API y desktop' { & npm run build }
   Invoke-Checked 'Preparando runtime embebido' { & npm run release:runtime }
 
