@@ -1,8 +1,4 @@
-import {
-  buildDockerPgDumpArgs,
-  buildPgDumpArgs,
-  parseDatabaseUrl,
-} from './backup-database';
+﻿import { buildPgDumpArgs, parseDatabaseUrl } from './backup-database';
 
 describe('database backup helpers', () => {
   it('parses PostgreSQL URLs with Prisma schema query params', () => {
@@ -30,20 +26,7 @@ describe('database backup helpers', () => {
     expect(args).toContain('--host');
     expect(args).toContain('localhost');
     expect(args).toContain('--schema=public');
-    expect(args).not.toContain('secret');
-  });
-
-  it('builds Docker fallback args for the configured container', () => {
-    const args = buildDockerPgDumpArgs(
-      parseDatabaseUrl('postgresql://vetcare:secret@localhost/vetcare_pro'),
-      'vetcare-pro-postgres',
-    );
-
-    expect(args.slice(0, 3)).toEqual([
-      'exec',
-      'vetcare-pro-postgres',
-      'pg_dump',
-    ]);
     expect(args).toContain('vetcare_pro');
+    expect(args).not.toContain('secret');
   });
 });

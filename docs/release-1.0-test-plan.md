@@ -1,19 +1,21 @@
-# VetCare Pro 1.0.0 - Prueba en otra maquina
+﻿# VetCare Pro 1.0.0 - Prueba en otra maquina
 
 ## Requisitos de la maquina de prueba
 
 - Windows 10/11 x64.
-- Docker Desktop instalado y abierto.
-- Puerto `4782` libre para la API.
-- Puerto `54329` libre para PostgreSQL local.
+- No requiere Docker Desktop.
+- No requiere Node.js.
+- No requiere PostgreSQL instalado.
+- Puerto `4782` libre para la API local.
+- Puerto `54329` libre para PostgreSQL embebido.
 
 ## Instalacion
 
 1. Copiar `apps\desktop\dist\VetCare-Pro-Setup-1.0.0-x64.exe`.
 2. Ejecutar el instalador.
 3. Abrir VetCare Pro desde el acceso directo.
-4. Esperar el primer arranque; puede tardar mientras inicia PostgreSQL y aplica
-   migraciones.
+4. Esperar el primer arranque; puede tardar mientras inicializa PostgreSQL,
+   crea la base local y aplica migraciones.
 
 ## Validacion inicial
 
@@ -30,12 +32,16 @@
 
 ## Rutas a revisar
 
+- Datos PostgreSQL: `C:\VetCarePro\data\postgres`
 - Archivos clinicos: `C:\VetCarePro\uploads`
 - Backups: `C:\VetCarePro\backups`
+- Logs de arranque: `C:\VetCarePro\logs\desktop-runtime.log`
+- Logs de PostgreSQL: `C:\VetCarePro\logs\postgres.log`
 - Logs de API: `C:\VetCarePro\logs\api.log`
 - Errores de API: `C:\VetCarePro\logs\api-error.log`
 
 ## Resultado esperado
 
-La app debe abrir desde el icono de Windows, levantar la API local por si sola,
-usar PostgreSQL local en Docker y conservar los datos entre reinicios.
+La app debe abrir desde el icono de Windows, inicializar PostgreSQL embebido por
+si sola, levantar la API local, conservar datos entre reinicios y permitir
+backup manual sin herramientas externas instaladas.

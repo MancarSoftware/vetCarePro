@@ -1,18 +1,35 @@
-# VetCare Pro - Runtime local Windows
+﻿# VetCare Pro - Runtime local Windows
 
 Este documento define el flujo local para desarrollo, pruebas internas y
-primer empaquetado de VetCare Pro en Windows.
+empaquetado de VetCare Pro en Windows.
 
 ## Carpetas locales
 
 El sistema usa estas rutas por defecto:
 
+- `C:\VetCarePro\data\postgres`: datos de PostgreSQL embebido.
 - `C:\VetCarePro\uploads`: imagenes, PDFs y archivos clinicos.
 - `C:\VetCarePro\backups`: respaldos SQL/ZIP.
-- `C:\VetCarePro\logs`: logs locales futuros.
+- `C:\VetCarePro\logs`: logs locales de Electron, API y PostgreSQL.
 - `C:\VetCarePro\temp`: archivos temporales.
 
-## Comandos principales
+## Instalador 1.0.0
+
+El instalador Windows incluye:
+
+- Cliente Electron.
+- API NestJS compilada.
+- Node.js embebido para ejecutar la API.
+- PostgreSQL portable embebido.
+- `pg_dump.exe` embebido para backups.
+- Migraciones SQL del esquema.
+- Logo e iconos del producto.
+
+En una PC cliente no se instala Docker, Node.js ni PostgreSQL por separado. En
+el primer arranque, Electron inicializa `C:\VetCarePro\data\postgres`, levanta
+PostgreSQL en `127.0.0.1:54329`, aplica migraciones y luego inicia la API local.
+
+## Comandos principales de desarrollo
 
 ```powershell
 npm run local:doctor
@@ -20,17 +37,8 @@ npm run local:prepare
 npm run local:start
 ```
 
-`local:doctor` valida Node, npm, Docker, `.env`, carpetas y puertos.
-
-`local:prepare` crea las carpetas, genera `.env`, levanta PostgreSQL con Docker
-y aplica migraciones Prisma.
-
-`local:start` ejecuta la preparacion y luego inicia API + Electron.
-
-En el instalador Windows 1.0.0, Electron levanta la API local automaticamente.
-Si Docker Desktop esta instalado y activo, tambien ejecuta `docker compose up`
-con el proyecto estable `vetcarepro` para PostgreSQL y aplica las migraciones
-SQL del runtime embebido.
+Estos comandos siguen siendo utiles para desarrollo. Pueden usar Docker segun el
+flujo local de desarrollo, pero Docker no forma parte del instalador final.
 
 ## Empaquetado
 
@@ -52,16 +60,24 @@ Los artefactos quedan en:
 apps\desktop\dist
 ```
 
-El instalador incluye:
+`release:runtime` descarga/cachea PostgreSQL portable desde EDB, lo copia a
+`release\runtime\postgres\pgsql` y empaqueta ese runtime dentro de Electron.
 
-- Cliente Electron.
-- API NestJS compilada.
-- Node.js runtime local para ejecutar la API.
-- Migraciones SQL.
-- `docker-compose.yml` para PostgreSQL local.
+## Preparacion LAN futura
 
-## Nota de arquitectura
+La arquitectura se mantiene separada:
 
-El instalador empaqueta la aplicacion Electron. La API local, PostgreSQL y
-carpetas de datos siguen gestionadas por el runtime local. Esto mantiene la
-arquitectura separada y lista para una version LAN futura.
+```text
+Electron -> API NestJS -> PostgreSQL -> archivos locales
+```
+
+En modo Local, PostgreSQL vive en la misma PC. En modo LAN, se podra configurar
+`DATABASE_URL` o `VETCARE_DATABASE_URL` hacia la IP de una PC servidor, por
+ejemplo:
+
+```text
+postgresql://vetcare:clave@192.168.1.10:54329/vetcare_pro?schema=public
+```
+
+Cuando la base configurada no es la local por defecto, Electron omite el
+arranque de PostgreSQL embebido y usa la base externa.

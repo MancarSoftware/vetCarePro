@@ -156,6 +156,7 @@ export class SettingsService {
 
   private localInfo() {
     const database = this.databaseInfo();
+    const lanReady = !this.isLocalDatabaseHost(database.host);
     return {
       uploadsPath: this.mediaStorage.rootPath,
       backupsPath: this.backupsService.rootPath,
@@ -165,10 +166,12 @@ export class SettingsService {
       databasePort: database.port,
       databaseName: database.database,
       databaseSchema: database.schema,
-      postgresContainer:
-        this.config.get<string>('POSTGRES_CONTAINER') ??
-        'vetcare-pro-postgres',
-      lanReady: false,
+      databaseMode: lanReady ? 'lan' : 'local',
+      postgresRuntime: this.config.get<string>(
+        'POSTGRES_RUNTIME',
+        lanReady ? 'external' : 'embedded-local',
+      ),
+      lanReady,
     };
   }
 
@@ -182,6 +185,10 @@ export class SettingsService {
       database: url.pathname.replace(/^\//, ''),
       schema: url.searchParams.get('schema') ?? 'public',
     };
+  }
+
+  private isLocalDatabaseHost(host: string): boolean {
+    return ['127.0.0.1', 'localhost', '::1'].includes(host.toLowerCase());
   }
 
   private jsonObject<T>(value: Prisma.JsonValue | undefined): Partial<T> | null {

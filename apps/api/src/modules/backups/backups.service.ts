@@ -128,10 +128,6 @@ export class BackupsService implements OnModuleInit {
         databaseUrl: this.config.get<string>('DATABASE_URL') ?? defaultDatabaseUrl,
         outputPath: databasePath,
         pgDumpPath: this.config.get<string>('PG_DUMP_PATH'),
-        dockerPath: this.config.get<string>('DOCKER_PATH'),
-        dockerContainer:
-          this.config.get<string>('POSTGRES_CONTAINER') ??
-          'vetcare-pro-postgres',
       });
       await createZipFromDirectory(this.mediaStorage.rootPath, filesPath);
       const [databaseStat, filesStat] = await Promise.all([

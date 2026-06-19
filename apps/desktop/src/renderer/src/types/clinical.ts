@@ -696,7 +696,8 @@ export interface LocalSettingsInfo {
   databasePort: string;
   databaseName: string;
   databaseSchema: string;
-  postgresContainer: string;
+  databaseMode: 'local' | 'lan';
+  postgresRuntime: string;
   lanReady: boolean;
 }
 

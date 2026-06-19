@@ -500,13 +500,20 @@ export function SettingsPage() {
                 label="PostgreSQL"
                 value={`${local.databaseHost}:${local.databasePort}/${local.databaseName}?schema=${local.databaseSchema}`}
               />
-              <div className="lg:col-span-2">
-                <PathTile
-                  icon={Database}
-                  label="Contenedor PostgreSQL"
-                  value={local.postgresContainer}
-                />
-              </div>
+              <PathTile
+                icon={Database}
+                label="Modo de base"
+                value={local.databaseMode === 'lan' ? 'LAN / servidor' : 'Local embebido'}
+              />
+              <PathTile
+                icon={Database}
+                label="Runtime PostgreSQL"
+                value={
+                  local.postgresRuntime === 'embedded-local'
+                    ? 'Incluido en VetCare Pro'
+                    : 'Base externa configurada'
+                }
+              />
             </div>
           ) : (
             <SettingsSkeleton rows={4} />

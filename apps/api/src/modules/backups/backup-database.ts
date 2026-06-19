@@ -1,4 +1,4 @@
-import { createWriteStream } from 'node:fs';
+﻿import { createWriteStream } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { pipeline } from 'node:stream/promises';
@@ -16,8 +16,6 @@ export interface DatabaseDumpOptions {
   databaseUrl: string;
   outputPath: string;
   pgDumpPath?: string;
-  dockerPath?: string;
-  dockerContainer?: string;
 }
 
 export function parseDatabaseUrl(databaseUrl: string): DatabaseConnectionInfo {
@@ -52,78 +50,26 @@ export function buildPgDumpArgs(connection: DatabaseConnectionInfo): string[] {
   ];
 }
 
-export function buildDockerPgDumpArgs(
-  connection: DatabaseConnectionInfo,
-  container: string,
-): string[] {
-  return [
-    'exec',
-    container,
-    'pg_dump',
-    '-U',
-    connection.user,
-    '-d',
-    connection.database,
-    '--format=plain',
-    '--clean',
-    '--if-exists',
-    '--no-owner',
-    '--no-privileges',
-    ...(connection.schema ? [`--schema=${connection.schema}`] : []),
-  ];
-}
-
 export async function dumpPostgresDatabase(
   options: DatabaseDumpOptions,
 ): Promise<void> {
   const connection = parseDatabaseUrl(options.databaseUrl);
-  const attempts: Array<{
-    label: string;
-    command: string;
-    args: string[];
-    env?: NodeJS.ProcessEnv;
-  }> = [
-    {
-      label: 'pg_dump local',
-      command: options.pgDumpPath || 'pg_dump',
-      args: buildPgDumpArgs(connection),
-      env: connection.password ? { PGPASSWORD: connection.password } : {},
-    },
-    {
-      label: 'pg_dump via Docker',
-      command: options.dockerPath || 'docker',
-      args: buildDockerPgDumpArgs(
-        connection,
-        options.dockerContainer || 'vetcare-pro-postgres',
-      ),
-    },
-  ];
+  const command = options.pgDumpPath || 'pg_dump';
 
-  const errors: string[] = [];
-  for (const attempt of attempts) {
-    try {
-      await runCommandToFile(
-        attempt.command,
-        attempt.args,
-        options.outputPath,
-        attempt.env,
-      );
-      return;
-    } catch (error) {
-      await rm(options.outputPath, { force: true }).catch(() => undefined);
-      errors.push(
-        `${attempt.label}: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
+  try {
+    await runCommandToFile(command, buildPgDumpArgs(connection), options.outputPath, {
+      ...(connection.password ? { PGPASSWORD: connection.password } : {}),
+    });
+  } catch (error) {
+    await rm(options.outputPath, { force: true }).catch(() => undefined);
+    throw new Error(
+      [
+        'No se pudo ejecutar pg_dump.',
+        'Verifica que PG_DUMP_PATH apunte al pg_dump.exe incluido en VetCare Pro o a las herramientas cliente de PostgreSQL.',
+        error instanceof Error ? error.message : String(error),
+      ].join(' '),
+    );
   }
-
-  throw new Error(
-    [
-      'No se pudo ejecutar pg_dump.',
-      'Instala PostgreSQL client tools o verifica que Docker este disponible.',
-      ...errors,
-    ].join(' '),
-  );
 }
 
 async function runCommandToFile(

@@ -1,11 +1,28 @@
-Set-StrictMode -Version Latest
+﻿Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
+Add-Type -AssemblyName System.IO.Compression.FileSystem
 
-$RepoRoot = Resolve-Path (Join-Path $PSScriptRoot '..\..')
+$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $RuntimeRoot = Join-Path $RepoRoot 'release\runtime'
 $ApiRuntime = Join-Path $RuntimeRoot 'api'
 $NodeRuntime = Join-Path $RuntimeRoot 'node'
+$PostgresRuntime = Join-Path $RuntimeRoot 'postgres\pgsql'
 $NodeExe = (Get-Command node -ErrorAction Stop).Source
+
+$PostgresVersion = '16.14-1'
+$PostgresArchiveName = "postgresql-$PostgresVersion-windows-x64-binaries.zip"
+$PostgresDownloadUrl = $env:VETCARE_POSTGRES_DOWNLOAD_URL
+if ([string]::IsNullOrWhiteSpace($PostgresDownloadUrl)) {
+  $PostgresDownloadUrl = "https://get.enterprisedb.com/postgresql/$PostgresArchiveName"
+}
+
+$PostgresCacheRoot = $env:VETCARE_POSTGRES_CACHE
+if ([string]::IsNullOrWhiteSpace($PostgresCacheRoot)) {
+  $PostgresCacheRoot = Join-Path $env:TEMP 'vcpg'
+}
+$PostgresArchive = Join-Path $PostgresCacheRoot 'pg16.zip'
+$PostgresExtractRoot = Join-Path $PostgresCacheRoot 'pg16'
 
 function Copy-Directory {
   param(
@@ -33,20 +50,70 @@ function Invoke-Checked {
   }
 }
 
+function Ensure-PostgresPortable {
+  New-Item -ItemType Directory -Path $PostgresCacheRoot -Force | Out-Null
+
+  $downloadRequired = $true
+  if (Test-Path $PostgresArchive) {
+    $archiveInfo = Get-Item $PostgresArchive
+    $downloadRequired = $archiveInfo.Length -lt 100MB
+  }
+
+  if ($downloadRequired) {
+    Write-Host "==> Descargando PostgreSQL portable $PostgresVersion" -ForegroundColor Cyan
+    Write-Host "    $PostgresDownloadUrl"
+    Invoke-WebRequest -Uri $PostgresDownloadUrl -OutFile $PostgresArchive -UseBasicParsing
+  } else {
+    Write-Host "==> Usando cache de PostgreSQL portable" -ForegroundColor Cyan
+  }
+
+  $postgresExeInCache = Join-Path $PostgresExtractRoot 'pgsql\bin\postgres.exe'
+  if (-not (Test-Path $postgresExeInCache)) {
+    if (Test-Path $PostgresExtractRoot) {
+      Remove-Item -LiteralPath $PostgresExtractRoot -Recurse -Force
+    }
+    Write-Host '==> Extrayendo PostgreSQL portable' -ForegroundColor Cyan
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($PostgresArchive, $PostgresExtractRoot)
+  }
+
+  $pgsqlRoot = Join-Path $PostgresExtractRoot 'pgsql'
+  if (-not (Test-Path (Join-Path $pgsqlRoot 'bin\postgres.exe'))) {
+    $pgsqlRoot = Get-ChildItem -Path $PostgresExtractRoot -Directory -Recurse |
+      Where-Object { Test-Path (Join-Path $_.FullName 'bin\postgres.exe') } |
+      Select-Object -First 1 -ExpandProperty FullName
+  }
+
+  if ([string]::IsNullOrWhiteSpace($pgsqlRoot) -or -not (Test-Path (Join-Path $pgsqlRoot 'bin\postgres.exe'))) {
+    throw 'No se encontro postgres.exe dentro del ZIP de PostgreSQL portable.'
+  }
+
+  New-Item -ItemType Directory -Path $PostgresRuntime -Force | Out-Null
+  foreach ($requiredDir in @('bin', 'lib', 'share')) {
+    Copy-Directory (Join-Path $pgsqlRoot $requiredDir) (Join-Path $PostgresRuntime $requiredDir)
+  }
+  foreach ($licenseFile in @('server_license.txt', 'commandlinetools_3rd_party_licenses.txt')) {
+    $sourceLicense = Join-Path $pgsqlRoot $licenseFile
+    if (Test-Path $sourceLicense) {
+      Copy-Item -Path $sourceLicense -Destination (Join-Path $PostgresRuntime $licenseFile) -Force
+    }
+  }
+  Set-Content -Path (Join-Path (Split-Path $PostgresRuntime -Parent) 'VERSION.txt') -Value "PostgreSQL $PostgresVersion portable from $PostgresDownloadUrl" -Encoding UTF8
+}
+
 Write-Host 'Preparando runtime 1.0.0 para instalador Windows...' -ForegroundColor Cyan
 
 if (Test-Path $RuntimeRoot) {
   Remove-Item -LiteralPath $RuntimeRoot -Recurse -Force
 }
 
-New-Item -ItemType Directory -Path $RuntimeRoot, $ApiRuntime, $NodeRuntime -Force | Out-Null
+New-Item -ItemType Directory -Path $RuntimeRoot, $ApiRuntime, $NodeRuntime, (Split-Path $PostgresRuntime -Parent) -Force | Out-Null
 
 Copy-Item -Path $NodeExe -Destination (Join-Path $NodeRuntime 'node.exe') -Force
 Copy-Directory (Join-Path $RepoRoot 'apps\api\dist') (Join-Path $ApiRuntime 'dist')
 Copy-Directory (Join-Path $RepoRoot 'apps\api\prisma') (Join-Path $ApiRuntime 'prisma')
 Copy-Directory (Join-Path $RepoRoot 'scripts\runtime') (Join-Path $ApiRuntime 'scripts')
+Ensure-PostgresPortable
 
-Copy-Item -Path (Join-Path $RepoRoot 'docker-compose.yml') -Destination (Join-Path $RuntimeRoot 'docker-compose.yml') -Force
 Copy-Item -Path (Join-Path $RepoRoot '.env.example') -Destination (Join-Path $RuntimeRoot '.env.example') -Force
 Copy-Item -Path (Join-Path $RepoRoot 'README.md') -Destination (Join-Path $RuntimeRoot 'README.md') -Force
 

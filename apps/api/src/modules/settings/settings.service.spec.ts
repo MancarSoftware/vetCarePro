@@ -26,7 +26,7 @@ describe('SettingsService', () => {
           API_PORT: 4782,
           DATABASE_URL:
             'postgresql://vetcare:secret@127.0.0.1:54329/vetcare_pro?schema=public',
-          POSTGRES_CONTAINER: 'vetcare-pro-postgres',
+          POSTGRES_RUNTIME: 'embedded-local',
         };
         return values[key] ?? fallback;
       }),
@@ -53,6 +53,9 @@ describe('SettingsService', () => {
     expect(settings.local.uploadsPath).toBe('C:/VetCarePro/uploads');
     expect(settings.local.backupsPath).toBe('C:/VetCarePro/backups');
     expect(settings.local.databaseName).toBe('vetcare_pro');
+    expect(settings.local.databaseMode).toBe('local');
+    expect(settings.local.postgresRuntime).toBe('embedded-local');
+    expect(settings.local.lanReady).toBe(false);
     expect(settings.metadata.updatedBy).toBeNull();
   });
 
