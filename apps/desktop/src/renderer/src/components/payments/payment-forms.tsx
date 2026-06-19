@@ -60,8 +60,29 @@ const methodLabels: Record<PaymentMethod, string> = {
   CASH: 'Efectivo',
   BANK_TRANSFER: 'Transferencia',
   CARD: 'Tarjeta',
+  CARD_DEBIT: 'Tarjeta debito',
+  CARD_CREDIT: 'Tarjeta credito',
   OTHER: 'Otro',
 };
+
+const paymentMethodOptions: Array<{
+  value: PaymentMethod;
+  label: string;
+}> = [
+  { value: 'CASH', label: methodLabels.CASH },
+  { value: 'BANK_TRANSFER', label: methodLabels.BANK_TRANSFER },
+  { value: 'CARD_DEBIT', label: methodLabels.CARD_DEBIT },
+  { value: 'CARD_CREDIT', label: methodLabels.CARD_CREDIT },
+  { value: 'OTHER', label: methodLabels.OTHER },
+];
+
+function isManualCardMethod(method: PaymentMethod) {
+  return (
+    method === 'CARD' ||
+    method === 'CARD_DEBIT' ||
+    method === 'CARD_CREDIT'
+  );
+}
 
 function newLine(type: PaymentItemType): PaymentLineForm {
   return {
@@ -162,6 +183,14 @@ export function PaymentFormModal({
     }
     if (Number(form.initialAmount || 0) > totals.total) {
       setError('El pago inicial no puede superar el total.');
+      return;
+    }
+    if (
+      Number(form.initialAmount || 0) > 0 &&
+      isManualCardMethod(form.method) &&
+      !form.paymentReference.trim()
+    ) {
+      setError('Registra la referencia o voucher del pago con tarjeta.');
       return;
     }
     try {
@@ -499,21 +528,35 @@ export function PaymentFormModal({
                   }
                   className="h-10 rounded-xl border border-white/10 bg-slate-900 px-3 text-sm text-white outline-none"
                 >
-                  {Object.entries(methodLabels).map(([method, label]) => (
-                    <option key={method} value={method}>
+                  {paymentMethodOptions.map(({ value, label }) => (
+                    <option key={value} value={value}>
                       {label}
                     </option>
                   ))}
                 </select>
               </div>
               <input
+                required={
+                  Number(form.initialAmount || 0) > 0 &&
+                  isManualCardMethod(form.method)
+                }
                 value={form.paymentReference}
                 onChange={(event) =>
                   update('paymentReference', event.target.value)
                 }
-                placeholder="Referencia del pago"
+                placeholder={
+                  isManualCardMethod(form.method)
+                    ? 'Voucher o referencia de tarjeta'
+                    : 'Referencia del pago'
+                }
                 className="mt-3 h-10 w-full rounded-xl border border-white/10 bg-white/10 px-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-teal-400"
               />
+              {isManualCardMethod(form.method) && (
+                <p className="mt-2 text-xs text-teal-100">
+                  La tarjeta se cobra en el POS/datafono y aqui se guarda el
+                  voucher.
+                </p>
+              )}
             </div>
           </div>
 
@@ -570,6 +613,10 @@ export function PaymentTransactionModal({
     const amount = Number(form.amount);
     if (!amount || amount <= 0 || amount > balance) {
       setError(`Ingresa un valor entre 0,01 y ${currency(balance)}.`);
+      return;
+    }
+    if (isManualCardMethod(form.method) && !form.reference.trim()) {
+      setError('Registra la referencia o voucher del pago con tarjeta.');
       return;
     }
     try {
@@ -635,8 +682,8 @@ export function PaymentTransactionModal({
                 }
                 className={clinicalInputClass}
               >
-                {Object.entries(methodLabels).map(([method, label]) => (
-                  <option key={method} value={method}>
+                {paymentMethodOptions.map(({ value, label }) => (
+                  <option key={value} value={value}>
                     {label}
                   </option>
                 ))}
@@ -656,8 +703,12 @@ export function PaymentTransactionModal({
                 className={clinicalInputClass}
               />
             </ClinicalField>
-            <ClinicalField label="Referencia" optional>
+            <ClinicalField
+              label="Referencia / voucher"
+              optional={!isManualCardMethod(form.method)}
+            >
               <input
+                required={isManualCardMethod(form.method)}
                 value={form.reference}
                 onChange={(event) =>
                   setForm((current) => ({
@@ -665,7 +716,11 @@ export function PaymentTransactionModal({
                     reference: event.target.value,
                   }))
                 }
-                placeholder="Transferencia, voucher..."
+                placeholder={
+                  isManualCardMethod(form.method)
+                    ? 'Voucher aprobado por el POS'
+                    : 'Transferencia, voucher...'
+                }
                 className={clinicalInputClass}
               />
             </ClinicalField>

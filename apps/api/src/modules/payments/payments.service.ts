@@ -335,6 +335,12 @@ export class PaymentsService {
         'El pago inicial no puede superar el total del documento',
       );
     }
+    if (dto.initialPayment) {
+      this.assertManualCardReference(
+        dto.initialPayment.method,
+        dto.initialPayment.reference,
+      );
+    }
     const status = paymentStatus(total, initialAmount);
     const invoiceNumber = this.generateInvoiceNumber();
     const description =
@@ -459,6 +465,7 @@ export class PaymentsService {
         `El abono supera el saldo pendiente de ${balance.toFixed(2)}`,
       );
     }
+    this.assertManualCardReference(dto.method, dto.reference);
     const paidAmount = money(payment.paidAmount.toNumber() + dto.amount);
     const status = paymentStatus(payment.amount.toNumber(), paidAmount);
     const receivedAt = this.transactionDate(dto.receivedAt);
@@ -799,6 +806,29 @@ export class PaymentsService {
   private optionalText(value: string | null | undefined): string | null {
     const normalized = value?.trim();
     return normalized ? normalized : null;
+  }
+
+  private assertManualCardReference(
+    method: PaymentMethod,
+    reference?: string | null,
+  ) {
+    if (!this.isManualCardMethod(method)) {
+      return;
+    }
+
+    if (!this.optionalText(reference)) {
+      throw new BadRequestException(
+        'Registra la referencia o voucher del pago con tarjeta',
+      );
+    }
+  }
+
+  private isManualCardMethod(method: PaymentMethod) {
+    return (
+      method === PaymentMethod.CARD ||
+      method === PaymentMethod.CARD_DEBIT ||
+      method === PaymentMethod.CARD_CREDIT
+    );
   }
 
   private handleUniqueReference(error: unknown): never {

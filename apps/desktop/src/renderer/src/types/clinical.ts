@@ -460,6 +460,8 @@ export type PaymentMethod =
   | 'CASH'
   | 'BANK_TRANSFER'
   | 'CARD'
+  | 'CARD_DEBIT'
+  | 'CARD_CREDIT'
   | 'OTHER';
 
 export type PaymentStatus =
