@@ -24,7 +24,7 @@ import { delimiter, dirname, join } from 'node:path';
 const REFRESH_TOKEN_FILE = 'session.bin';
 const API_URL = 'http://127.0.0.1:4782/api/health';
 const LOCAL_DATA_DIR = 'C:\\VetCarePro';
-const POSTGRES_PORT = '54329';
+const POSTGRES_PORT = '54529';
 const POSTGRES_USER = 'vetcare';
 const POSTGRES_PASSWORD = 'vetcare_dev';
 const POSTGRES_DATABASE = 'vetcare_pro';

@@ -10,7 +10,7 @@ producto. En una PC cliente no requiere Docker, Node.js, PostgreSQL ni internet.
 
 - Windows 10/11 x64.
 - Puerto `4782` libre para la API local.
-- Puerto `54329` libre para PostgreSQL embebido.
+- Puerto `54529` libre para PostgreSQL embebido.
 
 ## Requisitos de desarrollo
 
@@ -53,7 +53,8 @@ npm run package:win
 
 - API: `http://127.0.0.1:4782/api`
 - Salud: `http://127.0.0.1:4782/api/health`
-- PostgreSQL local: `127.0.0.1:54329`
+- PostgreSQL embebido del instalador: `127.0.0.1:54529`
+- PostgreSQL de desarrollo con Docker: `127.0.0.1:54329`
 
 ## Runtime local Windows
 

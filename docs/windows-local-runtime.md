@@ -27,7 +27,7 @@ El instalador Windows incluye:
 
 En una PC cliente no se instala Docker, Node.js ni PostgreSQL por separado. En
 el primer arranque, Electron inicializa `C:\VetCarePro\data\postgres`, levanta
-PostgreSQL en `127.0.0.1:54329`, aplica migraciones y luego inicia la API local.
+PostgreSQL en `127.0.0.1:54529`, aplica migraciones y luego inicia la API local.
 
 ## Comandos principales de desarrollo
 

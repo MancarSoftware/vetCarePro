@@ -7,7 +7,7 @@
 - No requiere Node.js.
 - No requiere PostgreSQL instalado.
 - Puerto `4782` libre para la API local.
-- Puerto `54329` libre para PostgreSQL embebido.
+- Puerto `54529` libre para PostgreSQL embebido.
 
 ## Instalacion
 

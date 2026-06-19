@@ -131,9 +131,15 @@ if (Test-TcpPort '127.0.0.1' 4782) {
 }
 
 if (Test-TcpPort '127.0.0.1' 54329) {
-  Add-Result 'PostgreSQL 54329' 'OK' 'PostgreSQL esta escuchando.' $false
+  Add-Result 'PostgreSQL desarrollo 54329' 'OK' 'PostgreSQL de desarrollo esta escuchando.' $false
 } else {
-  Add-Result 'PostgreSQL 54329' 'WARN' 'PostgreSQL no esta activo ahora mismo.' $false
+  Add-Result 'PostgreSQL desarrollo 54329' 'WARN' 'PostgreSQL de desarrollo no esta activo ahora mismo.' $false
+}
+
+if (Test-TcpPort '127.0.0.1' 54529) {
+  Add-Result 'PostgreSQL runtime 54529' 'OK' 'PostgreSQL embebido esta escuchando.' $false
+} else {
+  Add-Result 'PostgreSQL runtime 54529' 'WARN' 'PostgreSQL embebido no esta activo ahora mismo.' $false
 }
 
 $requiredFailures = @($results | Where-Object { $_.Required -and $_.Status -eq 'FAIL' })
