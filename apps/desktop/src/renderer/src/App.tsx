@@ -21,6 +21,7 @@ import { SettingsPage } from '@/pages/settings-page';
 import { SetupPage } from '@/pages/setup-page';
 import { TreatmentsPage } from '@/pages/treatments-page';
 import { UsersPage } from '@/pages/users-page';
+import type { NavigationTarget } from '@/types/global-search';
 import { useState } from 'react';
 
 function AuthenticatedApp() {
@@ -42,6 +43,39 @@ function AuthenticatedApp() {
   if (!user) {
     return null;
   }
+
+  const navigateToTarget = (target: NavigationTarget) => {
+    setHistoryPetId(undefined);
+    setAppointmentPetId(undefined);
+    setPreventivePetId(undefined);
+    setTreatmentTarget({});
+    setMediaTarget({});
+
+    if (target.page === 'history') {
+      setHistoryPetId(target.petId);
+    }
+    if (target.page === 'appointments') {
+      setAppointmentPetId(target.petId);
+    }
+    if (target.page === 'preventive') {
+      setPreventivePetId(target.petId);
+    }
+    if (target.page === 'treatments') {
+      setTreatmentTarget({
+        petId: target.petId,
+        medicalRecordId: target.recordId,
+      });
+    }
+    if (target.page === 'media') {
+      setMediaTarget({
+        petId: target.petId,
+        medicalRecordId: target.recordId,
+        treatmentId: target.treatmentId,
+      });
+    }
+
+    setCurrentPage(target.page);
+  };
 
   const renderPage = () => {
     if (currentPage === 'pets') {
@@ -159,22 +193,15 @@ function AuthenticatedApp() {
     <div className="min-h-screen bg-[#f7f9fb] text-slate-900">
       <Sidebar
         currentPage={currentPage}
-        onNavigate={(page) => {
-          if (page === 'appointments') {
-            setAppointmentPetId(undefined);
-          }
-          if (page === 'treatments') {
-            setTreatmentTarget({});
-          }
-          if (page === 'media') {
-            setMediaTarget({});
-          }
-          setCurrentPage(page);
-        }}
+        onNavigate={(page) => navigateToTarget({ page })}
         user={user}
       />
       <div className="min-h-screen pl-[246px]">
-        <Topbar user={user} onLogout={logout} />
+        <Topbar
+          user={user}
+          onLogout={logout}
+          onNavigate={navigateToTarget}
+        />
         <main className="mx-auto w-full max-w-[1740px] px-7 pb-8 pt-6">
           {renderPage()}
         </main>

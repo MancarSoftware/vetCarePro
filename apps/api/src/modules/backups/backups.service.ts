@@ -5,7 +5,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createReadStream } from 'node:fs';
+import { createReadStream, existsSync } from 'node:fs';
 import { mkdir, rm, stat } from 'node:fs/promises';
 import { basename, join, relative, resolve, sep } from 'node:path';
 import { Prisma } from '../../generated/prisma/client';
@@ -127,7 +127,7 @@ export class BackupsService implements OnModuleInit {
       await dumpPostgresDatabase({
         databaseUrl: this.config.get<string>('DATABASE_URL') ?? defaultDatabaseUrl,
         outputPath: databasePath,
-        pgDumpPath: this.config.get<string>('PG_DUMP_PATH'),
+        pgDumpPath: this.resolvePgDumpPath(),
       });
       await createZipFromDirectory(this.mediaStorage.rootPath, filesPath);
       const [databaseStat, filesStat] = await Promise.all([
@@ -284,6 +284,39 @@ export class BackupsService implements OnModuleInit {
     const localBase =
       process.env.LOCALAPPDATA ?? join(process.cwd(), '.vetcare-data');
     return resolve(localBase, 'VetCarePro', 'backups');
+  }
+
+  private resolvePgDumpPath(): string | undefined {
+    const configured = this.config.get<string>('PG_DUMP_PATH')?.trim();
+    if (configured && existsSync(configured)) {
+      return configured;
+    }
+
+    const candidates = [
+      resolve(process.cwd(), '..', 'postgres', 'pgsql', 'bin', 'pg_dump.exe'),
+      resolve(
+        process.cwd(),
+        '..',
+        '..',
+        'release',
+        'runtime',
+        'postgres',
+        'pgsql',
+        'bin',
+        'pg_dump.exe',
+      ),
+      resolve(
+        process.cwd(),
+        'release',
+        'runtime',
+        'postgres',
+        'pgsql',
+        'bin',
+        'pg_dump.exe',
+      ),
+    ];
+
+    return candidates.find((candidate) => existsSync(candidate)) ?? configured;
   }
 
   private assertWithinBackupRoot(targetPath: string): void {

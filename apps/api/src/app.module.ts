@@ -4,6 +4,7 @@ import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { BackupsModule } from './modules/backups/backups.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { GlobalSearchModule } from './modules/global-search/global-search.module';
 import { HealthModule } from './modules/health/health.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { MedicalRecordsModule } from './modules/medical-records/medical-records.module';
@@ -45,6 +46,7 @@ import { SecurityModule } from './security/security.module';
     ReportsModule,
     SettingsModule,
     DashboardModule,
+    GlobalSearchModule,
   ],
 })
 export class AppModule {}
