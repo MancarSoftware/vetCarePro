@@ -1,6 +1,10 @@
-# VetCare Pro
+# VetCare Pro 1.0.0
 
 Aplicacion veterinaria desktop local para Windows.
+
+La version instalable 1.0.0 incluye Electron, la API local compilada, un
+runtime Node.js embebido para la API, migraciones SQL y configuracion Docker
+para PostgreSQL local.
 
 ## Requisitos de desarrollo
 
@@ -36,6 +40,7 @@ npm run package:win
 - `local:start`: inicia API + Electron.
 - `package:win:dir`: genera paquete Electron sin instalador.
 - `package:win`: genera instalador Windows NSIS.
+- `release:runtime`: prepara API, Node.js y migraciones para el instalador.
 
 ## Servicios locales
 
@@ -52,3 +57,5 @@ Las rutas por defecto son:
 - Logs: `C:\VetCarePro\logs`
 
 Mas detalles: `docs/windows-local-runtime.md`.
+
+Plan de prueba en otra maquina: `docs/release-1.0-test-plan.md`.

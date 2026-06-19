@@ -54,7 +54,7 @@ export function AuthShell({
         </div>
 
         <p className="relative text-xs text-teal-50/60">
-          VetCare Pro · Versión 0.1.0
+          VetCare Pro · Versión 1.0.0
         </p>
       </section>
 
@@ -83,4 +83,3 @@ export function AuthShell({
     </div>
   );
 }
-

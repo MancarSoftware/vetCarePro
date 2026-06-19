@@ -27,6 +27,11 @@ y aplica migraciones Prisma.
 
 `local:start` ejecuta la preparacion y luego inicia API + Electron.
 
+En el instalador Windows 1.0.0, Electron levanta la API local automaticamente.
+Si Docker Desktop esta instalado y activo, tambien ejecuta `docker compose up`
+con el proyecto estable `vetcarepro` para PostgreSQL y aplica las migraciones
+SQL del runtime embebido.
+
 ## Empaquetado
 
 Para validar el paquete sin crear instalador:
@@ -46,6 +51,14 @@ Los artefactos quedan en:
 ```text
 apps\desktop\dist
 ```
+
+El instalador incluye:
+
+- Cliente Electron.
+- API NestJS compilada.
+- Node.js runtime local para ejecutar la API.
+- Migraciones SQL.
+- `docker-compose.yml` para PostgreSQL local.
 
 ## Nota de arquitectura
 

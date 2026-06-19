@@ -10,12 +10,8 @@ files:
   - package.json
 
 extraResources:
-  - from: ../../docker-compose.yml
-    to: runtime/docker-compose.yml
-  - from: ../../.env.example
-    to: runtime/.env.example
-  - from: ../../README.md
-    to: runtime/README.md
+  - from: ../../release/runtime
+    to: runtime
 
 asar: true
 compression: maximum

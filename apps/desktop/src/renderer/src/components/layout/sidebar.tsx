@@ -195,7 +195,7 @@ export function Sidebar({
         </div>
 
         <div className="flex items-center justify-between px-3 pt-4 text-[11px] text-slate-400">
-          <span>Versión 0.1.0</span>
+          <span>Versión 1.0.0</span>
           <span className="flex items-center gap-1.5">
             <span className="size-2 rounded-full bg-emerald-500" />
             Local

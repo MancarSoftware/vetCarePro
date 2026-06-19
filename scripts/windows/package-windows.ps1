@@ -29,6 +29,7 @@ Push-Location $RepoRoot
 try {
   $env:CSC_IDENTITY_AUTO_DISCOVERY = 'false'
   Invoke-Checked 'Compilando API y desktop' { & npm run build }
+  Invoke-Checked 'Preparando runtime embebido' { & npm run release:runtime }
 
   if ($DirOnly) {
     Invoke-Checked 'Generando paquete de directorio Electron' {

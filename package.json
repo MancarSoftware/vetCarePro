@@ -1,6 +1,6 @@
 {
   "name": "vetcare-pro",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Sistema veterinario desktop local para Windows",
   "workspaces": [
@@ -15,6 +15,7 @@
     "local:doctor": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/doctor.ps1",
     "local:prepare": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/prepare-local.ps1",
     "local:start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/start-local.ps1",
+    "release:runtime": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/prepare-release-runtime.ps1",
     "package:win": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/package-windows.ps1",
     "package:win:dir": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/package-windows.ps1 -DirOnly",
     "infra:up": "docker compose up -d --wait",

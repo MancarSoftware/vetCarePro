@@ -13,4 +13,5 @@ Thumbs.db
 /.data/
 /uploads/
 /backups/
+/release/
 apps/api/src/generated/
