@@ -84,6 +84,22 @@ function isManualCardMethod(method: PaymentMethod) {
   );
 }
 
+function normalizeDiscountPercent(value: string) {
+  const numericValue = Number(value || 0);
+  if (!Number.isFinite(numericValue)) return 0;
+  return Math.min(100, Math.max(0, Math.trunc(numericValue)));
+}
+
+function sanitizeDiscountPercent(value: string) {
+  const digits = value.replace(/\D/g, '');
+  if (!digits) return '';
+  return String(Math.min(100, Number(digits)));
+}
+
+function roundMoney(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
 function newLine(type: PaymentItemType): PaymentLineForm {
   return {
     key: crypto.randomUUID(),
@@ -153,6 +169,9 @@ export function PaymentFormModal({
             unitPrice: product?.salePrice?.toString() ?? '',
           };
         }
+        if (field === 'discount') {
+          return { ...item, discount: sanitizeDiscountPercent(value) };
+        }
         return { ...item, [field]: value };
       }),
     }));
@@ -169,12 +188,17 @@ export function PaymentFormModal({
       form.items.some(
         (item) =>
           !item.description.trim() ||
-          Number(item.quantity) <= 0 ||
+          (item.type === 'PRODUCT' && Number(item.quantity) <= 0) ||
           Number(item.unitPrice) < 0 ||
+          !Number.isInteger(Number(item.discount || 0)) ||
+          normalizeDiscountPercent(item.discount) !==
+            Number(item.discount || 0) ||
           (item.type === 'PRODUCT' && !item.productId),
       )
     ) {
-      setError('Completa correctamente todos los conceptos.');
+      setError(
+        'Completa correctamente todos los conceptos. El descuento debe ser un porcentaje entero entre 0 y 100.',
+      );
       return;
     }
     if (totals.total <= 0) {
@@ -311,10 +335,15 @@ export function PaymentFormModal({
             <div className="divide-y divide-slate-100">
               {form.items.map((item, index) => {
                 const line = calculateFormLine(item);
+                const isProduct = item.type === 'PRODUCT';
                 return (
                   <div
                     key={item.key}
-                    className="grid grid-cols-[120px_1fr_110px_130px_110px_120px_36px] items-end gap-3 px-5 py-4"
+                    className={
+                      isProduct
+                        ? 'grid grid-cols-[120px_1fr_110px_130px_120px_120px_36px] items-end gap-3 px-5 py-4'
+                        : 'grid grid-cols-[120px_1fr_150px_120px_120px_36px] items-end gap-3 px-5 py-4'
+                    }
                   >
                     <ClinicalField label="Tipo">
                       <select
@@ -340,7 +369,7 @@ export function PaymentFormModal({
                         <option value="OTHER">Otro</option>
                       </select>
                     </ClinicalField>
-                    {item.type === 'PRODUCT' ? (
+                    {isProduct ? (
                       <ClinicalField label="Producto">
                         <select
                           required
@@ -380,24 +409,28 @@ export function PaymentFormModal({
                         />
                       </ClinicalField>
                     )}
-                    <ClinicalField label="Cantidad">
-                      <input
-                        type="number"
-                        min="0.001"
-                        step="0.001"
-                        required
-                        value={item.quantity}
-                        onChange={(event) =>
-                          updateLine(
-                            item.key,
-                            'quantity',
-                            event.target.value,
-                          )
-                        }
-                        className={clinicalInputClass}
-                      />
-                    </ClinicalField>
-                    <ClinicalField label="Precio unitario">
+                    {isProduct && (
+                      <ClinicalField label="Cantidad">
+                        <input
+                          type="number"
+                          min="0.001"
+                          step="0.001"
+                          required
+                          value={item.quantity}
+                          onChange={(event) =>
+                            updateLine(
+                              item.key,
+                              'quantity',
+                              event.target.value,
+                            )
+                          }
+                          className={clinicalInputClass}
+                        />
+                      </ClinicalField>
+                    )}
+                    <ClinicalField
+                      label={isProduct ? 'Precio unitario' : 'Precio'}
+                    >
                       <input
                         type="number"
                         min="0"
@@ -414,21 +447,27 @@ export function PaymentFormModal({
                         className={clinicalInputClass}
                       />
                     </ClinicalField>
-                    <ClinicalField label="Descuento">
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={item.discount}
-                        onChange={(event) =>
-                          updateLine(
-                            item.key,
-                            'discount',
-                            event.target.value,
-                          )
-                        }
-                        className={clinicalInputClass}
-                      />
+                    <ClinicalField label="Descuento %">
+                      <div className="relative">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          maxLength={3}
+                          value={item.discount}
+                          onChange={(event) =>
+                            updateLine(
+                              item.key,
+                              'discount',
+                              event.target.value,
+                            )
+                          }
+                          className={`${clinicalInputClass} pr-8`}
+                        />
+                        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                          %
+                        </span>
+                      </div>
                     </ClinicalField>
                     <div className="pb-3 text-right">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
@@ -771,12 +810,14 @@ export function paymentMethodLabel(method: PaymentMethod) {
 }
 
 export function calculateFormLine(item: PaymentLineForm) {
-  const subtotal = Number(item.quantity || 0) * Number(item.unitPrice || 0);
-  const discount = Number(item.discount || 0);
+  const quantity = item.type === 'PRODUCT' ? Number(item.quantity || 0) : 1;
+  const subtotal = roundMoney(quantity * Number(item.unitPrice || 0));
+  const discountPercent = normalizeDiscountPercent(item.discount);
+  const discount = roundMoney((subtotal * discountPercent) / 100);
   return {
     subtotal,
     discount,
-    total: Math.max(0, subtotal - discount),
+    total: roundMoney(Math.max(0, subtotal - discount)),
   };
 }
 

@@ -33,6 +33,16 @@ input {
   font: inherit;
 }
 
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  margin: 0;
+  appearance: none;
+}
+
+input[type='number'] {
+  appearance: textfield;
+}
+
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -48,4 +58,3 @@ input {
   background: #cbd5e1;
   background-clip: padding-box;
 }
-

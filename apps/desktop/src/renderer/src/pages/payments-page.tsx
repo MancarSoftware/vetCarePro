@@ -219,9 +219,10 @@ export function PaymentsPage() {
                 ? item.productId
                 : undefined,
             description: item.description.trim(),
-            quantity: Number(item.quantity),
+            quantity:
+              item.type === 'PRODUCT' ? Number(item.quantity) : 1,
             unitPrice: Number(item.unitPrice),
-            discount: Number(item.discount || 0),
+            discount: calculateFormLine(item).discount,
           })),
           ...(Number(form.initialAmount || 0) > 0
             ? {
