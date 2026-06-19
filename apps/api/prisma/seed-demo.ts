@@ -599,7 +599,7 @@ async function seedAuthorization(): Promise<Record<string, string>> {
 async function seedUsers(
   roleIds: Record<string, string>,
 ): Promise<Record<string, string>> {
-  const passwordHash = await bcrypt.hash('Demo2026!', 12);
+  const passwordHash = await bcrypt.hash('Demo2026!!', 12);
   const userIds: Record<string, string> = {};
 
   for (const userSeed of demoUsers) {
@@ -1329,10 +1329,10 @@ async function main(): Promise<void> {
   });
   console.log('');
   console.log('Accesos demo:');
-  console.log(`  admin${demoEmailDomain} / Demo2026!`);
-  console.log(`  sofia.ramirez${demoEmailDomain} / Demo2026!`);
-  console.log(`  valentina.paredes${demoEmailDomain} / Demo2026!`);
-  console.log(`  daniel.mora${demoEmailDomain} / Demo2026!`);
+  console.log(`  admin${demoEmailDomain} / Demo2026!!`);
+  console.log(`  sofia.ramirez${demoEmailDomain} / Demo2026!!`);
+  console.log(`  valentina.paredes${demoEmailDomain} / Demo2026!!`);
+  console.log(`  daniel.mora${demoEmailDomain} / Demo2026!!`);
 }
 
 main()
