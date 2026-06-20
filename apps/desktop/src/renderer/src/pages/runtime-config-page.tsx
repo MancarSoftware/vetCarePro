@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import {
   AlertTriangle,
   CheckCircle2,
+  Copy,
   LoaderCircle,
   Monitor,
   Network,
@@ -118,6 +119,7 @@ export function RuntimeConfigPage({
   const [error, setError] = useState<string | null>(loadError ?? null);
   const [isTesting, setIsTesting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
 
   const selectedMode = useMemo(
     () => modeOptions.find((option) => option.mode === mode) ?? modeOptions[0],
@@ -153,6 +155,21 @@ export function RuntimeConfigPage({
     serverHost: mode === 'lan-client' ? serverHost.trim() : '127.0.0.1',
     apiPort: apiPort || '4782',
   });
+  const handleCopyAddress = async (address: string) => {
+    setError(null);
+    try {
+      await navigator.clipboard.writeText(address);
+      setCopiedAddress(address);
+      window.setTimeout(() => {
+        setCopiedAddress((current) => (current === address ? null : current));
+      }, 1800);
+    } catch {
+      setError(
+        `No se pudo copiar automaticamente. Copia manualmente esta IP: ${address}`,
+      );
+    }
+  };
+
 
   const handleTestConnection = async () => {
     setError(null);
@@ -391,16 +408,30 @@ export function RuntimeConfigPage({
                                   {item.address}:4782
                                 </p>
                               </div>
-                              <span
-                                className={cn(
-                                  'rounded-full px-3 py-1 text-xs font-black uppercase tracking-[0.12em]',
-                                  recommended && 'bg-emerald-100 text-emerald-700',
-                                  virtual && 'bg-slate-200 text-slate-600',
-                                  item.kind === 'other' && 'bg-amber-100 text-amber-700',
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span
+                                  className={cn(
+                                    'rounded-full px-3 py-1 text-xs font-black uppercase tracking-[0.12em]',
+                                    recommended && 'bg-emerald-100 text-emerald-700',
+                                    virtual && 'bg-slate-200 text-slate-600',
+                                    item.kind === 'other' && 'bg-amber-100 text-amber-700',
+                                  )}
+                                >
+                                  {item.label}
+                                </span>
+                                {recommended && (
+                                  <button
+                                    type="button"
+                                    onClick={() => void handleCopyAddress(item.address)}
+                                    className="inline-flex h-8 items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 text-xs font-black text-emerald-700 transition hover:bg-emerald-100"
+                                  >
+                                    <Copy className="size-3.5" />
+                                    {copiedAddress === item.address
+                                      ? 'Copiado'
+                                      : 'Copiar IP'}
+                                  </button>
                                 )}
-                              >
-                                {item.label}
-                              </span>
+                              </div>
                             </div>
                             <p
                               className={cn(
