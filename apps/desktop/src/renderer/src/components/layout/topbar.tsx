@@ -1,4 +1,5 @@
 import { useAuth } from '@/contexts/auth-context';
+import { RuntimeStatusPill } from '@/components/runtime/runtime-status-pill';
 import type { BackupRecord, PaginatedResponse } from '@/types/clinical';
 import type { DashboardSummary } from '@/types/dashboard';
 import type {
@@ -363,6 +364,8 @@ export function Topbar({
       </button>
 
       <div className="ml-auto flex items-center gap-5 pl-8">
+        <RuntimeStatusPill />
+
         <div className="relative">
           <button
             type="button"
