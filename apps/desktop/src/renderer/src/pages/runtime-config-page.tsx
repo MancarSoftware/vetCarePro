@@ -192,6 +192,12 @@ export function RuntimeConfigPage({
     serverHost: mode === 'lan-client' ? serverHost.trim() : '127.0.0.1',
     apiPort: apiPort || '4782',
   });
+
+  const testRuntimeConnection = async (input: ReturnType<typeof buildInput>) =>
+    runtimeBridge()
+      ? await runtimeBridge()!.testConnection(input)
+      : await fallbackTestConnection(mode, input.serverHost, String(input.apiPort));
+
   const handleCopyAddress = async (address: string) => {
     setError(null);
     try {
@@ -234,9 +240,7 @@ export function RuntimeConfigPage({
     setIsTesting(true);
     try {
       const input = buildInput();
-      const connectionResult = runtimeBridge()
-        ? await runtimeBridge()!.testConnection(input)
-        : await fallbackTestConnection(mode, input.serverHost, String(input.apiPort));
+      const connectionResult = await testRuntimeConnection(input);
       setResult(connectionResult);
     } finally {
       setIsTesting(false);
@@ -255,6 +259,19 @@ export function RuntimeConfigPage({
     setIsSaving(true);
     try {
       const input = buildInput();
+
+      if (mode === 'lan-client') {
+        const connectionResult = await testRuntimeConnection(input);
+        setResult(connectionResult);
+
+        if (!connectionResult.ok) {
+          setError(
+            'No se guardo la configuracion porque esta PC no pudo conectar con el Servidor LAN.',
+          );
+          return;
+        }
+      }
+
       const saved = runtimeBridge()
         ? await runtimeBridge()!.saveConfig(input)
         : {
