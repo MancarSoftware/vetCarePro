@@ -36,9 +36,14 @@ export interface VetCareConnectionTestResult {
   checkedAt: string;
 }
 
+export type VetCareLanAddressKind = 'recommended' | 'virtual' | 'other';
+
 export interface VetCareLanAddress {
   name: string;
   address: string;
+  kind: VetCareLanAddressKind;
+  label: string;
+  hint: string;
 }
 
 function isRuntimeMode(value: unknown): value is VetCareRuntimeMode {

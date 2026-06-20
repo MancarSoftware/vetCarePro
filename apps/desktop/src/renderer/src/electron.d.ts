@@ -2,6 +2,7 @@ export {};
 
 declare global {
   type VetCareRuntimeMode = 'local' | 'lan-server' | 'lan-client';
+  type VetCareLanAddressKind = 'recommended' | 'virtual' | 'other';
 
   interface VetCareRuntimeConfig {
     configured: boolean;
@@ -32,6 +33,9 @@ declare global {
   interface VetCareLanAddress {
     name: string;
     address: string;
+    kind: VetCareLanAddressKind;
+    label: string;
+    hint: string;
   }
 
   interface Window {

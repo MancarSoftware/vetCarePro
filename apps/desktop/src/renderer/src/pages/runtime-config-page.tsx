@@ -364,20 +364,57 @@ export function RuntimeConfigPage({
                     IPs detectadas para conectar clientes
                   </div>
                   {lanAddresses.length > 0 ? (
-                    <div className="mt-3 grid gap-2">
-                      {lanAddresses.map((item) => (
-                        <div
-                          key={`${item.name}-${item.address}`}
-                          className="flex items-center justify-between rounded-xl bg-white px-3 py-2 text-sm"
-                        >
-                          <span className="font-semibold text-slate-500">
-                            {item.name}
-                          </span>
-                          <span className="font-mono font-black text-slate-900">
-                            {item.address}:4782
-                          </span>
-                        </div>
-                      ))}
+                    <div className="mt-3 grid gap-3">
+                      {lanAddresses.map((item) => {
+                        const recommended = item.kind === 'recommended';
+                        const virtual = item.kind === 'virtual';
+
+                        return (
+                          <div
+                            key={`${item.name}-${item.address}`}
+                            className={cn(
+                              'rounded-2xl border p-3 text-sm transition',
+                              recommended &&
+                                'border-emerald-200 bg-white shadow-sm shadow-emerald-900/5',
+                              virtual &&
+                                'border-slate-200 bg-slate-50 text-slate-500',
+                              item.kind === 'other' &&
+                                'border-amber-200 bg-amber-50/70 text-amber-900',
+                            )}
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="font-black text-slate-800">
+                                  {item.name}
+                                </p>
+                                <p className="mt-1 font-mono text-base font-black text-slate-950">
+                                  {item.address}:4782
+                                </p>
+                              </div>
+                              <span
+                                className={cn(
+                                  'rounded-full px-3 py-1 text-xs font-black uppercase tracking-[0.12em]',
+                                  recommended && 'bg-emerald-100 text-emerald-700',
+                                  virtual && 'bg-slate-200 text-slate-600',
+                                  item.kind === 'other' && 'bg-amber-100 text-amber-700',
+                                )}
+                              >
+                                {item.label}
+                              </span>
+                            </div>
+                            <p
+                              className={cn(
+                                'mt-2 text-xs font-medium leading-5',
+                                recommended && 'text-emerald-700',
+                                virtual && 'text-slate-500',
+                                item.kind === 'other' && 'text-amber-800',
+                              )}
+                            >
+                              {item.hint}
+                            </p>
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : (
                     <p className="mt-2 text-sm leading-6 text-teal-700">

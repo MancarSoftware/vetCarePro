@@ -129,11 +129,53 @@ async function saveRuntimeConfig(
   return config;
 }
 
+function classifyLanAddress(name: string): Omit<VetCareLanAddress, 'name' | 'address'> {
+  const normalized = name.toLowerCase();
+  if (
+    normalized.includes('vethernet') ||
+    normalized.includes('hyper-v') ||
+    normalized.includes('wsl') ||
+    normalized.includes('docker') ||
+    normalized.includes('virtualbox') ||
+    normalized.includes('vmware') ||
+    normalized.includes('loopback')
+  ) {
+    return {
+      kind: 'virtual',
+      label: 'Red virtual - no usar',
+      hint: 'Ignorala para clientes LAN. Es una red interna de Windows o de maquinas virtuales.',
+    };
+  }
+
+  if (
+    normalized.includes('wi-fi') ||
+    normalized.includes('wifi') ||
+    normalized.includes('wireless') ||
+    normalized.includes('ethernet')
+  ) {
+    return {
+      kind: 'recommended',
+      label: 'Usar esta IP en clientes LAN',
+      hint: 'Copia esta IP en las PCs cliente si esta es la conexion real del servidor.',
+    };
+  }
+
+  return {
+    kind: 'other',
+    label: 'Revisar antes de usar',
+    hint: 'Usala solo si corresponde a la red real del router de la veterinaria.',
+  };
+}
+
 function getLanAddresses(): VetCareLanAddress[] {
   return Object.entries(networkInterfaces()).flatMap(([name, addresses]) =>
     (addresses ?? [])
       .filter((address) => address.family === 'IPv4' && !address.internal)
-      .map((address) => ({ name, address: address.address })),
+      .map((address) => ({
+        name,
+        address: address.address,
+        ...classifyLanAddress(name),
+      })),
   );
 }
 
