@@ -100,7 +100,7 @@ function Ensure-PostgresPortable {
   Set-Content -Path (Join-Path (Split-Path $PostgresRuntime -Parent) 'VERSION.txt') -Value "PostgreSQL $PostgresVersion portable from $PostgresDownloadUrl" -Encoding UTF8
 }
 
-Write-Host 'Preparando runtime 1.0.0 para instalador Windows...' -ForegroundColor Cyan
+Write-Host 'Preparando runtime 1.1.0 para instalador Windows...' -ForegroundColor Cyan
 
 if (Test-Path $RuntimeRoot) {
   Remove-Item -LiteralPath $RuntimeRoot -Recurse -Force
@@ -119,7 +119,7 @@ Copy-Item -Path (Join-Path $RepoRoot 'README.md') -Destination (Join-Path $Runti
 
 $apiPackage = @{
   name = '@vetcare/api-runtime'
-  version = '1.0.0'
+  version = '1.1.0'
   private = $true
   main = 'dist/main.js'
   dependencies = @{

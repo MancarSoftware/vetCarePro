@@ -1,16 +1,18 @@
-﻿# VetCare Pro 1.0.0
+﻿# VetCare Pro 1.1.0 LAN
 
 Aplicacion veterinaria desktop local para Windows.
 
-La version instalable 1.0.0 incluye Electron, la API local compilada, Node.js
-embebido, PostgreSQL portable embebido, migraciones SQL y el logo final del
-producto. En una PC cliente no requiere Docker, Node.js, PostgreSQL ni internet.
+La version instalable 1.1.0 incluye Electron, la API local compilada, Node.js
+embebido, PostgreSQL portable embebido, migraciones SQL, selector Local /
+Servidor LAN / Cliente LAN, estado de conexion LAN y el logo final del producto.
+En una PC cliente no requiere Docker, Node.js, PostgreSQL ni internet.
 
 ## Requisitos para instalar en cliente
 
 - Windows 10/11 x64.
-- Puerto `4782` libre para la API local.
-- Puerto `54529` libre para PostgreSQL embebido.
+- Puerto `4782` libre para la API local en modo Una sola PC o Servidor LAN.
+- Puerto `54529` libre para PostgreSQL embebido en modo Una sola PC o Servidor LAN.
+- En modo Cliente LAN, acceso por red local a la IP del Servidor LAN.
 
 ## Requisitos de desarrollo
 
@@ -48,6 +50,7 @@ npm run package:win
 - `release:runtime`: prepara API, Node.js, PostgreSQL portable y migraciones para el instalador.
 - `package:win:dir`: genera paquete Electron sin instalador.
 - `package:win`: genera instalador Windows NSIS final.
+- Plan de prueba LAN: `docs/release-1.1-lan-test-plan.md`.
 
 ## Servicios locales
 
@@ -166,6 +169,10 @@ Recomendacion operativa:
 - Backup automatico diario en la PC servidor.
 - Copia semanal a disco externo, USB o NAS local si el cliente lo permite.
 
+En VetCare Pro 1.1.0, las PCs Cliente LAN pueden consultar el historial central
+de backups, pero las acciones de crear, descargar y eliminar respaldos quedan
+reservadas para la PC Servidor LAN.
+
 ### Checklist rapido si un cliente no conecta
 
 1. Confirmar que servidor y cliente esten conectados al mismo router.
@@ -214,4 +221,5 @@ la API del servidor.
 
 Mas detalles: `docs/windows-local-runtime.md`.
 
-Plan de prueba en otra maquina: `docs/release-1.0-test-plan.md`.
+Plan de prueba local 1.0: `docs/release-1.0-test-plan.md`.
+Plan de prueba LAN 1.1: `docs/release-1.1-lan-test-plan.md`.

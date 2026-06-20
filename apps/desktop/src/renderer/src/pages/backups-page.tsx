@@ -2,6 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useAuth } from '@/contexts/auth-context';
+import { useRuntimeConfig } from '@/contexts/runtime-config-context';
 import { cn } from '@/lib/utils';
 import type {
   BackupRecord,
@@ -14,6 +15,7 @@ import { es } from 'date-fns/locale';
 import type { LucideIcon } from 'lucide-react';
 import {
   Archive,
+  AlertTriangle,
   CheckCircle2,
   Clock3,
   Database,
@@ -69,6 +71,7 @@ const statusPresentation: Record<
 
 export function BackupsPage() {
   const { request, requestBlob, user } = useAuth();
+  const { config } = useRuntimeConfig();
   const [summary, setSummary] = useState(emptySummary);
   const [backups, setBackups] = useState<BackupRecord[]>([]);
   const [statusFilter, setStatusFilter] = useState('');
@@ -79,6 +82,8 @@ export function BackupsPage() {
     useState<BackupRecord | null>(null);
   const [error, setError] = useState<string | null>(null);
   const canManage = user?.permissions.includes('backups.manage') ?? false;
+  const isLanClient = config.mode === 'lan-client';
+  const canOperateBackups = canManage && !isLanClient;
 
   const refresh = useCallback(async () => {
     setIsLoading(true);
@@ -114,6 +119,15 @@ export function BackupsPage() {
   }, [refresh]);
 
   const createBackup = async () => {
+    if (!canOperateBackups) {
+      setError(
+        isLanClient
+          ? 'Los backups LAN se crean desde la PC Servidor LAN.'
+          : 'No tienes permisos para crear backups.',
+      );
+      return;
+    }
+
     setIsCreating(true);
     try {
       await request<BackupRecord>('/backups', { method: 'POST' });
@@ -135,6 +149,15 @@ export function BackupsPage() {
     backup: BackupRecord,
     kind: 'database' | 'files',
   ) => {
+    if (!canOperateBackups) {
+      setError(
+        isLanClient
+          ? 'Descarga los backups directamente desde la PC Servidor LAN.'
+          : 'No tienes permisos para descargar backups.',
+      );
+      return;
+    }
+
     const key = `${backup.id}-${kind}`;
     setIsDownloading(key);
     try {
@@ -164,6 +187,16 @@ export function BackupsPage() {
 
   const removeBackup = async () => {
     if (!deletingBackup) return;
+    if (!canOperateBackups) {
+      setDeletingBackup(null);
+      setError(
+        isLanClient
+          ? 'Los backups solo se eliminan desde la PC Servidor LAN.'
+          : 'No tienes permisos para eliminar backups.',
+      );
+      return;
+    }
+
     try {
       await request(`/backups/${deletingBackup.id}`, { method: 'DELETE' });
       setDeletingBackup(null);
@@ -195,8 +228,18 @@ export function BackupsPage() {
         {canManage && (
           <Button
             onClick={() => void createBackup()}
-            disabled={isCreating}
-            className="h-10 bg-teal-600 px-4 text-white shadow-lg shadow-teal-600/20 hover:bg-teal-700"
+            disabled={isCreating || !canOperateBackups}
+            className={cn(
+              'h-10 px-4 shadow-lg shadow-teal-600/20',
+              canOperateBackups
+                ? 'bg-teal-600 text-white hover:bg-teal-700'
+                : 'border border-slate-200 bg-white text-slate-400',
+            )}
+            title={
+              isLanClient
+                ? 'Los backups se crean desde la PC Servidor LAN.'
+                : 'Crear backup'
+            }
           >
             {isCreating ? (
               <LoaderCircle className="size-4 animate-spin" />
@@ -207,6 +250,20 @@ export function BackupsPage() {
           </Button>
         )}
       </div>
+
+      {isLanClient && (
+        <div className="mb-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+          <AlertTriangle className="mt-0.5 size-5 shrink-0" />
+          <div>
+            <p className="font-black">Backups controlados por el servidor</p>
+            <p className="mt-0.5 text-xs font-semibold leading-5">
+              Esta PC esta en modo Cliente LAN. Los respaldos reales se crean,
+              descargan y eliminan desde la PC Servidor LAN para proteger la
+              base de datos y los archivos clinicos centrales.
+            </p>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 flex items-center justify-between rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
@@ -261,7 +318,9 @@ export function BackupsPage() {
                 Rutas locales protegidas
               </p>
               <p className="text-xs text-slate-400">
-                Estas carpetas se usan en esta computadora.
+                {isLanClient
+                  ? 'Estas carpetas pertenecen a la PC Servidor LAN.'
+                  : 'Estas carpetas se usan en esta computadora.'}
               </p>
             </div>
           </div>
@@ -320,7 +379,9 @@ export function BackupsPage() {
               Historial de backups
             </p>
             <p className="mt-0.5 text-xs text-slate-400">
-              Base de datos SQL y archivos ZIP disponibles para descarga.
+              {isLanClient
+                ? 'Historial central consultado desde el servidor.'
+                : 'Base de datos SQL y archivos ZIP disponibles para descarga.'}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -357,6 +418,7 @@ export function BackupsPage() {
               <BackupRow
                 key={backup.id}
                 backup={backup}
+                canOperateBackups={canOperateBackups}
                 downloadingKey={isDownloading}
                 onDownload={downloadBackupFile}
                 onDelete={setDeletingBackup}
@@ -373,7 +435,9 @@ export function BackupsPage() {
                 No hay backups registrados
               </h2>
               <p className="mt-2 text-sm text-slate-500">
-                Crea el primer respaldo local para proteger la informacion.
+                {isLanClient
+                  ? 'Cuando el servidor genere backups, apareceran aqui.'
+                  : 'Crea el primer respaldo local para proteger la informacion.'}
               </p>
             </div>
           </div>
@@ -416,11 +480,13 @@ export function BackupsPage() {
 
 function BackupRow({
   backup,
+  canOperateBackups,
   downloadingKey,
   onDownload,
   onDelete,
 }: {
   backup: BackupRecord;
+  canOperateBackups: boolean;
   downloadingKey: string | null;
   onDownload: (backup: BackupRecord, kind: 'database' | 'files') => void;
   onDelete: (backup: BackupRecord) => void;
@@ -483,22 +549,27 @@ function BackupRow({
         <BackupAction
           icon={FileText}
           label="SQL"
-          disabled={!completed}
+          disabled={!completed || !canOperateBackups}
           loading={downloadingKey === `${backup.id}-database`}
           onClick={() => onDownload(backup, 'database')}
         />
         <BackupAction
           icon={FileArchive}
           label="ZIP"
-          disabled={!completed}
+          disabled={!completed || !canOperateBackups}
           loading={downloadingKey === `${backup.id}-files`}
           onClick={() => onDownload(backup, 'files')}
         />
         <button
           type="button"
           onClick={() => onDelete(backup)}
-          className="grid h-9 min-w-9 place-items-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600"
-          title="Eliminar backup"
+          disabled={!canOperateBackups}
+          className="grid h-9 min-w-9 place-items-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-400"
+          title={
+            canOperateBackups
+              ? 'Eliminar backup'
+              : 'Disponible solo en Servidor LAN'
+          }
         >
           <Trash2 className="size-4" />
         </button>
