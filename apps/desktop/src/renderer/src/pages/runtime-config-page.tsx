@@ -100,6 +100,36 @@ async function fallbackTestConnection(
   }
 }
 
+function connectionResultTitle(
+  mode: RuntimeMode,
+  result: VetCareConnectionTestResult,
+) {
+  if (mode === 'lan-client' && result.ok) {
+    return 'Conectado correctamente al servidor VetCare Pro.';
+  }
+
+  if (mode === 'lan-client') {
+    return 'No se pudo conectar con el servidor LAN.';
+  }
+
+  return result.message;
+}
+
+function connectionResultDescription(
+  mode: RuntimeMode,
+  result: VetCareConnectionTestResult,
+) {
+  if (mode === 'lan-client' && result.ok) {
+    return 'La PC cliente encontro la API del servidor. Puedes guardar y continuar.';
+  }
+
+  if (mode === 'lan-client') {
+    return result.message;
+  }
+
+  return null;
+}
+
 export function RuntimeConfigPage({
   initialConfig,
   loadError,
@@ -561,11 +591,43 @@ export function RuntimeConfigPage({
                   ) : (
                     <AlertTriangle className="mt-0.5 size-5 shrink-0" />
                   )}
-                  <div>
-                    <p className="font-bold">{result.message}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold">
+                      {connectionResultTitle(mode, result)}
+                    </p>
+                    {connectionResultDescription(mode, result) && (
+                      <p className="mt-1 text-xs font-semibold opacity-90">
+                        {connectionResultDescription(mode, result)}
+                      </p>
+                    )}
                     <p className="mt-1 break-all text-xs opacity-80">
                       {result.healthUrl}
                     </p>
+                    {mode === 'lan-client' && !result.ok && (
+                      <div className="mt-3 rounded-2xl border border-rose-200 bg-white/70 p-3 text-xs font-semibold leading-5 text-rose-900">
+                        <p className="font-black">
+                          Revisa estos puntos en orden:
+                        </p>
+                        <ol className="mt-2 space-y-1">
+                          <li>
+                            1. Que la IP sea la IP real del Servidor LAN, no una
+                            IP virtual como vEthernet, WSL, Docker o Hyper-V.
+                          </li>
+                          <li>
+                            2. Que el servidor este encendido y VetCare Pro este
+                            abierto en modo Servidor LAN.
+                          </li>
+                          <li>
+                            3. Que ambas computadoras esten conectadas al mismo
+                            router o a la misma red local.
+                          </li>
+                          <li>
+                            4. Que Windows Firewall permita el puerto{' '}
+                            {apiPort || '4782'} en la PC servidor.
+                          </li>
+                        </ol>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
