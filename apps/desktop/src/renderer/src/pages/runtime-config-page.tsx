@@ -212,7 +212,7 @@ export function RuntimeConfigPage({
 
   return (
     <div className="min-h-screen bg-[#f7f9fb] text-slate-950">
-      <div className="absolute inset-x-0 top-0 h-72 bg-gradient-to-br from-teal-700 via-teal-600 to-cyan-500" />
+      <div className="absolute inset-x-0 top-0 h-72 bg-gradient-to-br from-teal-800 via-teal-700 to-cyan-600" />
       <div className="relative mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8">
         <header className="flex items-center justify-between text-white">
           <BrandLogo inverted iconClassName="size-12" textClassName="text-2xl" />
@@ -223,66 +223,71 @@ export function RuntimeConfigPage({
         </header>
 
         <main className="my-auto grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-          <section className="rounded-[2rem] border border-white/20 bg-white/15 p-7 text-white shadow-2xl shadow-teal-950/10 backdrop-blur-xl">
-            <p className="text-xs font-bold uppercase tracking-[0.24em] text-teal-50/80">
-              VetCare Pro LAN
-            </p>
-            <h1 className="mt-4 text-4xl font-black leading-tight tracking-[-0.05em]">
-              Define como trabajara esta computadora.
-            </h1>
-            <p className="mt-4 max-w-xl text-sm leading-6 text-teal-50/85">
-              Para una sola PC, todo queda local. Para una clinica con varias
-              computadoras, una PC sera servidor y las demas se conectaran a
-              su IP dentro de la red.
-            </p>
+          <section className="relative overflow-hidden rounded-[2rem] border border-teal-200/20 bg-gradient-to-br from-slate-950 via-teal-950 to-teal-800 p-7 text-white shadow-2xl shadow-teal-950/25">
+            <div className="pointer-events-none absolute -right-24 -top-24 size-72 rounded-full bg-cyan-400/20 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-28 left-0 size-80 rounded-full bg-teal-300/10 blur-3xl" />
+            <div className="relative">
+              <p className="text-xs font-bold uppercase tracking-[0.24em] text-cyan-100">
+                VetCare Pro LAN
+              </p>
+              <h1 className="mt-4 text-4xl font-black leading-tight tracking-[-0.05em] text-white drop-shadow-sm">
+                Define como trabajara esta computadora.
+              </h1>
+              <p className="mt-4 max-w-xl text-sm font-medium leading-6 text-cyan-50/90">
+                Para una sola PC, todo queda local. Para una clinica con varias
+                computadoras, una PC sera servidor y las demas se conectaran a
+                su IP dentro de la red.
+              </p>
 
-            <div className="mt-8 space-y-3">
-              {modeOptions.map((option) => {
-                const Icon = option.icon;
-                const active = option.mode === mode;
-                return (
-                  <button
-                    key={option.mode}
-                    type="button"
-                    onClick={() => {
-                      setMode(option.mode);
-                      setResult(null);
-                      setError(null);
-                    }}
-                    className={cn(
-                      'flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition',
-                      active
-                        ? 'border-white bg-white text-slate-950 shadow-xl shadow-teal-950/10'
-                        : 'border-white/20 bg-white/10 text-white hover:bg-white/15',
-                    )}
-                  >
-                    <span
+              <div className="mt-8 space-y-3">
+                {modeOptions.map((option) => {
+                  const Icon = option.icon;
+                  const active = option.mode === mode;
+                  return (
+                    <button
+                      key={option.mode}
+                      type="button"
+                      onClick={() => {
+                        setMode(option.mode);
+                        setResult(null);
+                        setError(null);
+                      }}
                       className={cn(
-                        'grid size-12 shrink-0 place-items-center rounded-2xl',
-                        active ? 'bg-teal-50 text-teal-700' : 'bg-white/15 text-white',
+                        'flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition',
+                        active
+                          ? 'border-white bg-white text-slate-950 shadow-xl shadow-cyan-950/25 ring-2 ring-white/50'
+                          : 'border-cyan-100/20 bg-slate-900/55 text-white shadow-lg shadow-slate-950/10 hover:border-cyan-100/40 hover:bg-slate-800/80',
                       )}
                     >
-                      <Icon className="size-5" />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block text-sm font-black">
-                        {option.title}
-                      </span>
                       <span
                         className={cn(
-                          'mt-1 block text-xs leading-5',
-                          active ? 'text-slate-500' : 'text-teal-50/75',
+                          'grid size-12 shrink-0 place-items-center rounded-2xl',
+                          active
+                            ? 'bg-teal-50 text-teal-700'
+                            : 'bg-cyan-300/15 text-cyan-100',
                         )}
                       >
-                        {option.description}
+                        <Icon className="size-5" />
                       </span>
-                    </span>
-                  </button>
-                );
-              })}
+                      <span className="min-w-0">
+                        <span className="block text-sm font-black">
+                          {option.title}
+                        </span>
+                        <span
+                          className={cn(
+                            'mt-1 block text-xs font-medium leading-5',
+                            active ? 'text-slate-500' : 'text-cyan-50/80',
+                          )}
+                        >
+                          {option.description}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </section>
-
           <form
             onSubmit={handleSubmit}
             className="rounded-[2rem] border border-slate-200/80 bg-white p-7 shadow-2xl shadow-slate-900/10"
