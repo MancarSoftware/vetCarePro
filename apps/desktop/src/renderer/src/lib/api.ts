@@ -1,5 +1,26 @@
-const API_URL =
-  import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:4782/api';
+const FALLBACK_API_URL = 'http://127.0.0.1:4782/api';
+const STATIC_API_URL = import.meta.env.VITE_API_URL as string | undefined;
+
+function normalizeApiBaseUrl(url: string): string {
+  return url.replace(/\/+$/, '');
+}
+
+async function resolveApiBaseUrl(): Promise<string> {
+  if (STATIC_API_URL) {
+    return normalizeApiBaseUrl(STATIC_API_URL);
+  }
+
+  try {
+    const config = await window.vetcare?.runtime.getConfig();
+    if (config?.apiBaseUrl) {
+      return normalizeApiBaseUrl(config.apiBaseUrl);
+    }
+  } catch {
+    // The browser preview and early boot can fall back to the local API.
+  }
+
+  return FALLBACK_API_URL;
+}
 
 interface ApiErrorPayload {
   message?: string | string[];
@@ -54,7 +75,8 @@ async function performRequest(
       : JSON.stringify(options.body);
   }
   try {
-    return await fetch(`${API_URL}${path}`, {
+    const apiBaseUrl = await resolveApiBaseUrl();
+    return await fetch(`${apiBaseUrl}${path}`, {
       method: options.method ?? 'GET',
       headers: {
         Accept: 'application/json',
@@ -70,7 +92,7 @@ async function performRequest(
     });
   } catch {
     throw new ApiError(
-      'No se pudo conectar con el servicio local de VetCare Pro.',
+      'No se pudo conectar con el servicio de VetCare Pro.',
     );
   }
 }
