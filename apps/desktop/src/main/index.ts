@@ -20,11 +20,13 @@ import {
 import type { ChildProcess } from 'node:child_process';
 import { spawn } from 'node:child_process';
 import { delimiter, dirname, join } from 'node:path';
+import { networkInterfaces } from 'node:os';
 import {
   normalizeRuntimeConfig,
   persistedRuntimeConfig,
   type SaveVetCareRuntimeConfigInput,
   type VetCareConnectionTestResult,
+  type VetCareLanAddress,
   type VetCareRuntimeConfig,
 } from '../shared/runtime-config';
 const REFRESH_TOKEN_FILE = 'session.bin';
@@ -71,20 +73,37 @@ function runtimeConfigFromEnvironment(): SaveVetCareRuntimeConfigInput {
   });
 }
 
+function hasRuntimeEnvironmentOverride(
+  input: SaveVetCareRuntimeConfigInput,
+): boolean {
+  return (
+    input.mode !== undefined ||
+    input.serverHost !== undefined ||
+    input.apiPort !== undefined
+  );
+}
+
 async function readRuntimeConfig(): Promise<VetCareRuntimeConfig> {
   let fileConfig: SaveVetCareRuntimeConfigInput = {};
+  let hasFileConfig = false;
 
   try {
     fileConfig = JSON.parse(
       await readFile(getRuntimeConfigPath(), 'utf8'),
     ) as SaveVetCareRuntimeConfigInput;
+    hasFileConfig = true;
   } catch {
     fileConfig = {};
   }
 
+  const environmentConfig = runtimeConfigFromEnvironment();
   return normalizeRuntimeConfig({
     ...fileConfig,
-    ...runtimeConfigFromEnvironment(),
+    ...environmentConfig,
+    configured:
+      fileConfig.configured === true ||
+      hasFileConfig ||
+      hasRuntimeEnvironmentOverride(environmentConfig),
   });
 }
 
@@ -97,6 +116,7 @@ async function saveRuntimeConfig(
     serverHost: current.serverHost,
     apiPort: current.apiPort,
     ...definedRuntimeInput(input),
+    configured: true,
   });
   const configPath = getRuntimeConfigPath();
 
@@ -107,6 +127,14 @@ async function saveRuntimeConfig(
     'utf8',
   );
   return config;
+}
+
+function getLanAddresses(): VetCareLanAddress[] {
+  return Object.entries(networkInterfaces()).flatMap(([name, addresses]) =>
+    (addresses ?? [])
+      .filter((address) => address.family === 'IPv4' && !address.internal)
+      .map((address) => ({ name, address: address.address })),
+  );
 }
 
 async function testRuntimeConnection(
@@ -554,9 +582,15 @@ function stopPostgresProcess(): void {
   postgresProcess = null;
 }
 
-async function startEmbeddedRuntime(): Promise<void> {
-  const config = await readRuntimeConfig();
+async function startEmbeddedRuntime(
+  configOverride?: VetCareRuntimeConfig,
+): Promise<void> {
+  const config = configOverride ?? (await readRuntimeConfig());
 
+  if (!config.configured) {
+    await runtimeLog('Embedded runtime skipped until this PC is configured.');
+    return;
+  }
   if (!app.isPackaged || process.env.VETCARE_SKIP_EMBEDDED_API === '1') {
     await runtimeLog('Embedded runtime skipped.');
     return;
@@ -614,10 +648,14 @@ async function startEmbeddedRuntime(): Promise<void> {
 
 function registerRuntimeConfigHandlers(): void {
   ipcMain.handle('runtime:get-config', async () => readRuntimeConfig());
+  ipcMain.handle('runtime:get-lan-addresses', () => getLanAddresses());
   ipcMain.handle(
     'runtime:save-config',
-    async (_event, input: SaveVetCareRuntimeConfigInput) =>
-      saveRuntimeConfig(input ?? {}),
+    async (_event, input: SaveVetCareRuntimeConfigInput) => {
+      const config = await saveRuntimeConfig(input ?? {});
+      await startEmbeddedRuntime(config);
+      return config;
+    },
   );
   ipcMain.handle(
     'runtime:test-connection',

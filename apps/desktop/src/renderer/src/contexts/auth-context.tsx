@@ -47,6 +47,7 @@ const browserApiBaseUrl =
 
 function getBrowserRuntimeConfig() {
   return {
+    configured: true,
     mode: 'local' as const,
     serverHost: '127.0.0.1',
     apiPort: 4782,
@@ -64,6 +65,7 @@ const browserBridge: Window['vetcare'] = {
   },
   runtime: {
     getConfig: async () => getBrowserRuntimeConfig(),
+    getLanAddresses: async () => [],
     saveConfig: async () => getBrowserRuntimeConfig(),
     testConnection: async () => {
       const config = getBrowserRuntimeConfig();

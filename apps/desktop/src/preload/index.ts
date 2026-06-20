@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('vetcare', {
   },
   runtime: {
     getConfig: () => ipcRenderer.invoke('runtime:get-config'),
+    getLanAddresses: () => ipcRenderer.invoke('runtime:get-lan-addresses'),
     saveConfig: (input: unknown) =>
       ipcRenderer.invoke('runtime:save-config', input),
     testConnection: (input?: unknown) =>

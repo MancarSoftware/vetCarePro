@@ -1,0 +1,450 @@
+import { BrandLogo } from '@/components/brand/brand-logo';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  LoaderCircle,
+  Monitor,
+  Network,
+  Server,
+  ShieldCheck,
+  Wifi,
+} from 'lucide-react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+
+type RuntimeMode = 'local' | 'lan-server' | 'lan-client';
+
+const modeOptions: Array<{
+  mode: RuntimeMode;
+  title: string;
+  subtitle: string;
+  description: string;
+  icon: typeof Monitor;
+}> = [
+  {
+    mode: 'local',
+    title: 'Una sola PC',
+    subtitle: 'Version local clasica',
+    description: 'La base de datos, API, archivos y backups viven en este equipo.',
+    icon: Monitor,
+  },
+  {
+    mode: 'lan-server',
+    title: 'Servidor LAN',
+    subtitle: 'PC principal de la veterinaria',
+    description: 'Esta PC guarda los datos y permite que otros equipos se conecten.',
+    icon: Server,
+  },
+  {
+    mode: 'lan-client',
+    title: 'Cliente LAN',
+    subtitle: 'Recepcion, veterinario o caja',
+    description: 'Esta PC se conecta al servidor usando la IP de la red local.',
+    icon: Network,
+  },
+];
+
+function runtimeBridge() {
+  return window.vetcare?.runtime;
+}
+
+function normalizePort(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 5);
+  if (!digits) return '';
+  const port = Number(digits);
+  if (port > 65535) return '65535';
+  return String(port);
+}
+
+function apiPreview(mode: RuntimeMode, serverHost: string, apiPort: string) {
+  const host = mode === 'lan-client' ? serverHost || '192.168.1.10' : '127.0.0.1';
+  return `http://${host}:${apiPort || '4782'}/api`;
+}
+
+async function fallbackTestConnection(
+  mode: RuntimeMode,
+  serverHost: string,
+  apiPort: string,
+): Promise<VetCareConnectionTestResult> {
+  const apiBaseUrl = apiPreview(mode, serverHost, apiPort);
+  const healthUrl = `${apiBaseUrl}/health`;
+  const checkedAt = new Date().toISOString();
+
+  try {
+    const response = await fetch(healthUrl, {
+      signal: AbortSignal.timeout(2500),
+    });
+    return {
+      ok: response.ok,
+      status: response.status,
+      apiBaseUrl,
+      healthUrl,
+      message: response.ok
+        ? 'Conexion correcta con la API de VetCare Pro.'
+        : `La API respondio con estado ${response.status}.`,
+      checkedAt,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      apiBaseUrl,
+      healthUrl,
+      message:
+        error instanceof Error
+          ? `No se pudo conectar con la API: ${error.message}`
+          : 'No se pudo conectar con la API.',
+      checkedAt,
+    };
+  }
+}
+
+export function RuntimeConfigPage({
+  initialConfig,
+  loadError,
+  onConfigured,
+}: {
+  initialConfig: VetCareRuntimeConfig;
+  loadError?: string | null;
+  onConfigured: (config: VetCareRuntimeConfig) => void;
+}) {
+  const [mode, setMode] = useState<RuntimeMode>(initialConfig.mode);
+  const [serverHost, setServerHost] = useState(
+    initialConfig.serverHost === '127.0.0.1' ? '' : initialConfig.serverHost,
+  );
+  const [apiPort, setApiPort] = useState(String(initialConfig.apiPort || 4782));
+  const [lanAddresses, setLanAddresses] = useState<VetCareLanAddress[]>([]);
+  const [result, setResult] = useState<VetCareConnectionTestResult | null>(null);
+  const [error, setError] = useState<string | null>(loadError ?? null);
+  const [isTesting, setIsTesting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const selectedMode = useMemo(
+    () => modeOptions.find((option) => option.mode === mode) ?? modeOptions[0],
+    [mode],
+  );
+  const preview = apiPreview(mode, serverHost, apiPort);
+  const SelectedIcon = selectedMode.icon;
+
+  useEffect(() => {
+    if (mode !== 'lan-server') return;
+
+    let mounted = true;
+    void (async () => {
+      try {
+        const addresses = await runtimeBridge()?.getLanAddresses();
+        if (mounted) {
+          setLanAddresses(addresses ?? []);
+        }
+      } catch {
+        if (mounted) {
+          setLanAddresses([]);
+        }
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [mode]);
+
+  const buildInput = () => ({
+    mode,
+    serverHost: mode === 'lan-client' ? serverHost.trim() : '127.0.0.1',
+    apiPort: apiPort || '4782',
+  });
+
+  const handleTestConnection = async () => {
+    setError(null);
+    setResult(null);
+
+    if (mode === 'lan-client' && !serverHost.trim()) {
+      setError('Ingresa la IP de la PC servidor antes de probar conexion.');
+      return;
+    }
+
+    setIsTesting(true);
+    try {
+      const input = buildInput();
+      const connectionResult = runtimeBridge()
+        ? await runtimeBridge()!.testConnection(input)
+        : await fallbackTestConnection(mode, input.serverHost, String(input.apiPort));
+      setResult(connectionResult);
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    setError(null);
+
+    if (mode === 'lan-client' && !serverHost.trim()) {
+      setError('Ingresa la IP de la PC servidor. Ejemplo: 192.168.1.10');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const input = buildInput();
+      const saved = runtimeBridge()
+        ? await runtimeBridge()!.saveConfig(input)
+        : {
+            configured: true,
+            mode,
+            serverHost: input.serverHost,
+            apiPort: Number(input.apiPort),
+            apiBaseUrl: preview,
+            healthUrl: `${preview}/health`,
+            updatedAt: new Date().toISOString(),
+          };
+      onConfigured(saved);
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : 'No fue posible guardar la configuracion LAN.',
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#f7f9fb] text-slate-950">
+      <div className="absolute inset-x-0 top-0 h-72 bg-gradient-to-br from-teal-700 via-teal-600 to-cyan-500" />
+      <div className="relative mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8">
+        <header className="flex items-center justify-between text-white">
+          <BrandLogo inverted iconClassName="size-12" textClassName="text-2xl" />
+          <div className="hidden items-center gap-3 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold backdrop-blur md:flex">
+            <ShieldCheck className="size-4" />
+            Configuracion inicial segura
+          </div>
+        </header>
+
+        <main className="my-auto grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+          <section className="rounded-[2rem] border border-white/20 bg-white/15 p-7 text-white shadow-2xl shadow-teal-950/10 backdrop-blur-xl">
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-teal-50/80">
+              VetCare Pro LAN
+            </p>
+            <h1 className="mt-4 text-4xl font-black leading-tight tracking-[-0.05em]">
+              Define como trabajara esta computadora.
+            </h1>
+            <p className="mt-4 max-w-xl text-sm leading-6 text-teal-50/85">
+              Para una sola PC, todo queda local. Para una clinica con varias
+              computadoras, una PC sera servidor y las demas se conectaran a
+              su IP dentro de la red.
+            </p>
+
+            <div className="mt-8 space-y-3">
+              {modeOptions.map((option) => {
+                const Icon = option.icon;
+                const active = option.mode === mode;
+                return (
+                  <button
+                    key={option.mode}
+                    type="button"
+                    onClick={() => {
+                      setMode(option.mode);
+                      setResult(null);
+                      setError(null);
+                    }}
+                    className={cn(
+                      'flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition',
+                      active
+                        ? 'border-white bg-white text-slate-950 shadow-xl shadow-teal-950/10'
+                        : 'border-white/20 bg-white/10 text-white hover:bg-white/15',
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'grid size-12 shrink-0 place-items-center rounded-2xl',
+                        active ? 'bg-teal-50 text-teal-700' : 'bg-white/15 text-white',
+                      )}
+                    >
+                      <Icon className="size-5" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-black">
+                        {option.title}
+                      </span>
+                      <span
+                        className={cn(
+                          'mt-1 block text-xs leading-5',
+                          active ? 'text-slate-500' : 'text-teal-50/75',
+                        )}
+                      >
+                        {option.description}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <form
+            onSubmit={handleSubmit}
+            className="rounded-[2rem] border border-slate-200/80 bg-white p-7 shadow-2xl shadow-slate-900/10"
+          >
+            <div className="flex items-start gap-4">
+              <div className="grid size-14 place-items-center rounded-2xl bg-teal-50 text-teal-700">
+                <SelectedIcon className="size-6" />
+              </div>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-teal-600">
+                  {selectedMode.subtitle}
+                </p>
+                <h2 className="mt-2 text-3xl font-black tracking-[-0.04em]">
+                  {selectedMode.title}
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  {selectedMode.description}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-7 space-y-5">
+              {mode === 'lan-client' && (
+                <label className="block">
+                  <span className="mb-2 block text-sm font-bold text-slate-700">
+                    IP de la PC servidor
+                  </span>
+                  <input
+                    autoFocus
+                    required
+                    value={serverHost}
+                    onChange={(event) => {
+                      setServerHost(event.target.value);
+                      setResult(null);
+                    }}
+                    placeholder="192.168.1.10"
+                    className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10"
+                  />
+                  <p className="mt-2 text-xs leading-5 text-slate-400">
+                    Esta IP es la de la PC principal de la veterinaria, por ejemplo recepcion/servidor.
+                  </p>
+                </label>
+              )}
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-bold text-slate-700">
+                  Puerto API
+                </span>
+                <input
+                  inputMode="numeric"
+                  value={apiPort}
+                  onChange={(event) => {
+                    setApiPort(normalizePort(event.target.value));
+                    setResult(null);
+                  }}
+                  placeholder="4782"
+                  className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10"
+                />
+              </label>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
+                  Conexion que usara esta PC
+                </p>
+                <p className="mt-2 break-all font-mono text-sm font-bold text-slate-800">
+                  {preview}
+                </p>
+              </div>
+
+              {mode === 'lan-server' && (
+                <div className="rounded-2xl border border-teal-100 bg-teal-50/70 p-4">
+                  <div className="flex items-center gap-2 text-sm font-black text-teal-800">
+                    <Wifi className="size-4" />
+                    IPs detectadas para conectar clientes
+                  </div>
+                  {lanAddresses.length > 0 ? (
+                    <div className="mt-3 grid gap-2">
+                      {lanAddresses.map((item) => (
+                        <div
+                          key={`${item.name}-${item.address}`}
+                          className="flex items-center justify-between rounded-xl bg-white px-3 py-2 text-sm"
+                        >
+                          <span className="font-semibold text-slate-500">
+                            {item.name}
+                          </span>
+                          <span className="font-mono font-black text-slate-900">
+                            {item.address}:4782
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-sm leading-6 text-teal-700">
+                      No se detecto una IP LAN todavia. Conecta esta PC al router
+                      y revisa con el comando ipconfig.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {mode === 'local' && (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-500">
+                  Esta opcion mantiene el comportamiento de VetCare Pro 1.0.0:
+                  todo funciona en una sola computadora y no requiere configurar red.
+                </div>
+              )}
+
+              {result && (
+                <div
+                  className={cn(
+                    'flex items-start gap-3 rounded-2xl border p-4 text-sm leading-6',
+                    result.ok
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                      : 'border-rose-200 bg-rose-50 text-rose-800',
+                  )}
+                >
+                  {result.ok ? (
+                    <CheckCircle2 className="mt-0.5 size-5 shrink-0" />
+                  ) : (
+                    <AlertTriangle className="mt-0.5 size-5 shrink-0" />
+                  )}
+                  <div>
+                    <p className="font-bold">{result.message}</p>
+                    <p className="mt-1 break-all text-xs opacity-80">
+                      {result.healthUrl}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {error && (
+                <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm leading-6 text-rose-800">
+                  <AlertTriangle className="mt-0.5 size-5 shrink-0" />
+                  <p>{error}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:justify-end">
+              {mode === 'lan-client' && (
+                <Button
+                  type="button"
+                  onClick={handleTestConnection}
+                  disabled={isTesting || isSaving}
+                  className="h-12 rounded-2xl border border-slate-200 bg-white px-5 text-slate-700 hover:bg-slate-50"
+                >
+                  {isTesting && <LoaderCircle className="size-4 animate-spin" />}
+                  {isTesting ? 'Probando...' : 'Probar conexion'}
+                </Button>
+              )}
+              <Button
+                type="submit"
+                disabled={isSaving || isTesting}
+                className="h-12 rounded-2xl bg-teal-600 px-6 text-white shadow-lg shadow-teal-600/20 hover:bg-teal-700"
+              >
+                {isSaving && <LoaderCircle className="size-4 animate-spin" />}
+                {isSaving ? 'Guardando...' : 'Guardar y continuar'}
+              </Button>
+            </div>
+          </form>
+        </main>
+      </div>
+    </div>
+  );
+}

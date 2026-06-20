@@ -4,6 +4,7 @@ import {
 } from '@/components/layout/sidebar';
 import { Topbar } from '@/components/layout/topbar';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
+import { RuntimeConfigProvider } from '@/contexts/runtime-config-context';
 import { AppointmentsPage } from '@/pages/appointments-page';
 import { BackupsPage } from '@/pages/backups-page';
 import { DashboardPage } from '@/pages/dashboard-page';
@@ -227,8 +228,10 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <RuntimeConfigProvider>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </RuntimeConfigProvider>
   );
 }

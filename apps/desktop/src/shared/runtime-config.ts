@@ -11,6 +11,7 @@ export const VETCARE_RUNTIME_MODES = [
 export type VetCareRuntimeMode = (typeof VETCARE_RUNTIME_MODES)[number];
 
 export interface VetCareRuntimeConfig {
+  configured: boolean;
   mode: VetCareRuntimeMode;
   serverHost: string;
   apiPort: number;
@@ -20,6 +21,7 @@ export interface VetCareRuntimeConfig {
 }
 
 export interface SaveVetCareRuntimeConfigInput {
+  configured?: boolean;
   mode?: VetCareRuntimeMode | string;
   serverHost?: string;
   apiPort?: number | string;
@@ -32,6 +34,11 @@ export interface VetCareConnectionTestResult {
   healthUrl: string;
   message: string;
   checkedAt: string;
+}
+
+export interface VetCareLanAddress {
+  name: string;
+  address: string;
 }
 
 function isRuntimeMode(value: unknown): value is VetCareRuntimeMode {
@@ -120,9 +127,11 @@ export function normalizeRuntimeConfig(
   const serverHost = normalizeServerHost(input.serverHost);
   const extractedPort = extractPortFromHost(input.serverHost);
   const apiPort = normalizeApiPort(input.apiPort ?? extractedPort);
+  const configured = input.configured === true;
   const base = { mode, serverHost, apiPort };
 
   return {
+    configured,
     ...base,
     apiBaseUrl: buildApiBaseUrl(base),
     healthUrl: buildHealthUrl(base),
@@ -132,8 +141,12 @@ export function normalizeRuntimeConfig(
 
 export function persistedRuntimeConfig(
   config: VetCareRuntimeConfig,
-): Pick<VetCareRuntimeConfig, 'mode' | 'serverHost' | 'apiPort' | 'updatedAt'> {
+): Pick<
+  VetCareRuntimeConfig,
+  'configured' | 'mode' | 'serverHost' | 'apiPort' | 'updatedAt'
+> {
   return {
+    configured: config.configured,
     mode: config.mode,
     serverHost: config.serverHost,
     apiPort: config.apiPort,
