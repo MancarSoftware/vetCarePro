@@ -122,12 +122,17 @@ export function RuntimeConfigPage({
   const [isTesting, setIsTesting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
+  const [showFirewallHelp, setShowFirewallHelp] = useState(false);
+  const [copiedFirewallCommand, setCopiedFirewallCommand] = useState(false);
 
   const selectedMode = useMemo(
     () => modeOptions.find((option) => option.mode === mode) ?? modeOptions[0],
     [mode],
   );
   const preview = apiPreview(mode, serverHost, apiPort);
+  const firewallCommand = `New-NetFirewallRule -DisplayName "VetCare Pro API LAN" -Direction Inbound -Protocol TCP -LocalPort ${
+    apiPort || '4782'
+  } -Action Allow -Profile Private`;
   const SelectedIcon = selectedMode.icon;
 
   useEffect(() => {
@@ -172,6 +177,20 @@ export function RuntimeConfigPage({
     }
   };
 
+  const handleCopyFirewallCommand = async () => {
+    setError(null);
+    try {
+      await navigator.clipboard.writeText(firewallCommand);
+      setCopiedFirewallCommand(true);
+      window.setTimeout(() => {
+        setCopiedFirewallCommand(false);
+      }, 1800);
+    } catch {
+      setError(
+        'No se pudo copiar el comando. Puedes copiarlo manualmente desde el bloque de firewall.',
+      );
+    }
+  };
 
   const handleTestConnection = async () => {
     setError(null);
@@ -455,6 +474,69 @@ export function RuntimeConfigPage({
                       y revisa con el comando ipconfig.
                     </p>
                   )}
+
+                  <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50/80 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="flex min-w-0 gap-3">
+                        <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-white text-amber-700 shadow-sm">
+                          <AlertTriangle className="size-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-black text-amber-900">
+                            Firewall de Windows
+                          </p>
+                          <p className="mt-1 text-xs font-medium leading-5 text-amber-800">
+                            Si una PC cliente no conecta, Windows puede estar
+                            bloqueando el puerto {apiPort || '4782'} del servidor.
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowFirewallHelp((current) => !current)}
+                        className="rounded-full border border-amber-200 bg-white px-3 py-1.5 text-xs font-black text-amber-800 transition hover:bg-amber-100"
+                      >
+                        {showFirewallHelp
+                          ? 'Ocultar instrucciones'
+                          : 'Ver instrucciones'}
+                      </button>
+                    </div>
+
+                    {showFirewallHelp && (
+                      <div className="mt-4 space-y-3">
+                        <ol className="space-y-2 text-xs font-medium leading-5 text-amber-900">
+                          <li>
+                            1. En la PC servidor, confirma que la red de Windows
+                            este marcada como red privada.
+                          </li>
+                          <li>
+                            2. Abre Seguridad de Windows, Firewall y proteccion
+                            de red, y permite VetCare Pro en redes privadas.
+                          </li>
+                          <li>
+                            3. Si todavia no conecta, abre PowerShell como
+                            administrador y ejecuta este comando:
+                          </li>
+                        </ol>
+
+                        <div className="rounded-2xl border border-amber-200 bg-white p-3">
+                          <p className="break-all font-mono text-xs font-bold leading-5 text-slate-800">
+                            {firewallCommand}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => void handleCopyFirewallCommand()}
+                            className="mt-3 inline-flex h-8 items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 text-xs font-black text-amber-800 transition hover:bg-amber-100"
+                          >
+                            <Copy className="size-3.5" />
+                            {copiedFirewallCommand
+                              ? 'Comando copiado'
+                              : 'Copiar comando'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
