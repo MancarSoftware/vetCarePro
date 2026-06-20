@@ -13,6 +13,7 @@ import {
 interface RuntimeConfigContextValue {
   config: VetCareRuntimeConfig;
   reloadConfig: () => Promise<void>;
+  openConfigurator: () => void;
 }
 
 const browserRuntimeConfig: VetCareRuntimeConfig = {
@@ -36,6 +37,7 @@ async function loadRuntimeConfig(): Promise<VetCareRuntimeConfig> {
 export function RuntimeConfigProvider({ children }: { children: ReactNode }) {
   const [config, setConfig] = useState<VetCareRuntimeConfig | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isConfiguring, setIsConfiguring] = useState(false);
 
   const reloadConfig = useCallback(async () => {
     setError(null);
@@ -46,13 +48,26 @@ export function RuntimeConfigProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const handleConfigured = useCallback((nextConfig: VetCareRuntimeConfig) => {
+    setConfig(nextConfig);
+    setIsConfiguring(false);
+  }, []);
+
+  const openConfigurator = useCallback(() => {
+    setIsConfiguring(true);
+  }, []);
+
+  const closeConfigurator = useCallback(() => {
+    setIsConfiguring(false);
+  }, []);
+
   useEffect(() => {
     void reloadConfig();
   }, [reloadConfig]);
 
   const value = useMemo<RuntimeConfigContextValue | null>(
-    () => (config ? { config, reloadConfig } : null),
-    [config, reloadConfig],
+    () => (config ? { config, reloadConfig, openConfigurator } : null),
+    [config, reloadConfig, openConfigurator],
   );
 
   if (error) {
@@ -60,7 +75,7 @@ export function RuntimeConfigProvider({ children }: { children: ReactNode }) {
       <RuntimeConfigPage
         initialConfig={browserRuntimeConfig}
         loadError={error}
-        onConfigured={setConfig}
+        onConfigured={handleConfigured}
       />
     );
   }
@@ -69,11 +84,12 @@ export function RuntimeConfigProvider({ children }: { children: ReactNode }) {
     return <LoadingPage />;
   }
 
-  if (!config.configured) {
+  if (!config.configured || isConfiguring) {
     return (
       <RuntimeConfigPage
         initialConfig={config}
-        onConfigured={setConfig}
+        onConfigured={handleConfigured}
+        onCancel={config.configured ? closeConfigurator : undefined}
       />
     );
   }

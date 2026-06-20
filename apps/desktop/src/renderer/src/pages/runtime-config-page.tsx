@@ -104,10 +104,12 @@ export function RuntimeConfigPage({
   initialConfig,
   loadError,
   onConfigured,
+  onCancel,
 }: {
   initialConfig: VetCareRuntimeConfig;
   loadError?: string | null;
   onConfigured: (config: VetCareRuntimeConfig) => void;
+  onCancel?: () => void;
 }) {
   const [mode, setMode] = useState<RuntimeMode>(initialConfig.mode);
   const [serverHost, setServerHost] = useState(
@@ -504,6 +506,16 @@ export function RuntimeConfigPage({
                 >
                   {isTesting && <LoaderCircle className="size-4 animate-spin" />}
                   {isTesting ? 'Probando...' : 'Probar conexion'}
+                </Button>
+              )}
+              {onCancel && (
+                <Button
+                  type="button"
+                  onClick={onCancel}
+                  disabled={isSaving || isTesting}
+                  className="h-12 rounded-2xl border border-slate-200 bg-white px-5 text-slate-700 hover:bg-slate-50"
+                >
+                  Cancelar
                 </Button>
               )}
               <Button

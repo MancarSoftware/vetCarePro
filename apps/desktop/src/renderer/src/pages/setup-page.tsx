@@ -1,5 +1,6 @@
 import { AuthShell } from '@/components/auth/auth-shell';
 import { PasswordInput } from '@/components/auth/password-input';
+import { RuntimeConnectionPanel } from '@/components/runtime/runtime-connection-panel';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/auth-context';
 import { ApiError } from '@/lib/api';
@@ -45,6 +46,7 @@ export function SetupPage() {
       title="Crea la cuenta administradora"
       description="Esta cuenta tendrá acceso completo para configurar la clínica y crear al resto del equipo."
     >
+      <RuntimeConnectionPanel />
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
