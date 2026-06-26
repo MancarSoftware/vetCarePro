@@ -14,6 +14,7 @@ import {
   Syringe,
   UserRound,
   UsersRound,
+  WalletCards,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { AuthUser } from '@/types/auth';
@@ -30,6 +31,7 @@ export type AppPage =
   | 'preventive'
   | 'treatments'
   | 'payments'
+  | 'finance'
   | 'inventory'
   | 'reports'
   | 'backups'
@@ -97,6 +99,12 @@ const navigation: NavigationItem[] = [
     label: 'Pagos',
     icon: CreditCard,
     permission: 'payments.read',
+  },
+  {
+    id: 'finance',
+    label: 'Finanzas',
+    icon: WalletCards,
+    permission: 'finance.read',
   },
   {
     id: 'inventory',

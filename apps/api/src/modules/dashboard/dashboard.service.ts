@@ -30,6 +30,7 @@ export class DashboardService {
       appointmentsToday,
       pendingVaccines,
       monthlyIncome,
+      monthlyExpenses,
       agendaToday,
       upcomingVaccines,
       inventoryProducts,
@@ -62,6 +63,13 @@ export class DashboardService {
             deletedAt: null,
             status: { not: 'VOIDED' },
           },
+        },
+      }),
+      this.prisma.financeExpense.aggregate({
+        _sum: { amount: true },
+        where: {
+          occurredAt: { gte: monthStart },
+          deletedAt: null,
         },
       }),
       this.prisma.appointment.findMany({
@@ -192,6 +200,10 @@ export class DashboardService {
         appointmentsToday,
         pendingVaccines,
         monthlyIncome: monthlyIncome._sum.amount?.toNumber() ?? 0,
+        monthlyExpenses: monthlyExpenses._sum.amount?.toNumber() ?? 0,
+        monthlyNetIncome:
+          (monthlyIncome._sum.amount?.toNumber() ?? 0) -
+          (monthlyExpenses._sum.amount?.toNumber() ?? 0),
       },
       agendaToday,
       upcomingVaccines: upcomingVaccines.map((vaccine) => ({

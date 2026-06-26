@@ -8,6 +8,7 @@ import { RuntimeConfigProvider } from '@/contexts/runtime-config-context';
 import { AppointmentsPage } from '@/pages/appointments-page';
 import { BackupsPage } from '@/pages/backups-page';
 import { DashboardPage } from '@/pages/dashboard-page';
+import { FinancePage } from '@/pages/finance-page';
 import { LoadingPage } from '@/pages/loading-page';
 import { LoginPage } from '@/pages/login-page';
 import { InventoryPage } from '@/pages/inventory-page';
@@ -166,6 +167,7 @@ function AuthenticatedApp() {
     }
     if (currentPage === 'inventory') return <InventoryPage />;
     if (currentPage === 'payments') return <PaymentsPage />;
+    if (currentPage === 'finance') return <FinancePage />;
     if (currentPage === 'reports') return <ReportsPage />;
     if (currentPage === 'backups') return <BackupsPage />;
     if (currentPage === 'users') return <UsersPage />;
@@ -186,6 +188,7 @@ function AuthenticatedApp() {
         }}
         onOpenInventory={() => setCurrentPage('inventory')}
         onOpenPayments={() => setCurrentPage('payments')}
+        onOpenFinance={() => setCurrentPage('finance')}
       />
     );
   };

@@ -4,6 +4,7 @@ import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { BackupsModule } from './modules/backups/backups.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { FinanceModule } from './modules/finance/finance.module';
 import { GlobalSearchModule } from './modules/global-search/global-search.module';
 import { HealthModule } from './modules/health/health.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
@@ -43,6 +44,7 @@ import { SecurityModule } from './security/security.module';
     MediaModule,
     PreventiveCareModule,
     TreatmentsModule,
+    FinanceModule,
     ReportsModule,
     SettingsModule,
     DashboardModule,
