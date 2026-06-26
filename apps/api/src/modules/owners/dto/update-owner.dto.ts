@@ -2,6 +2,7 @@ import {
   IsEmail,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
   MinLength,
 } from 'class-validator';
@@ -21,13 +22,16 @@ export class UpdateOwnerDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(30)
+  @Matches(/^\d{10}$/, {
+    message: 'La cedula debe tener exactamente 10 digitos numericos',
+  })
   nationalId?: string | null;
 
   @IsOptional()
   @IsString()
-  @MinLength(7)
-  @MaxLength(30)
+  @Matches(/^\d{10}$/, {
+    message: 'El telefono debe tener exactamente 10 digitos numericos',
+  })
   phone?: string;
 
   @IsOptional()
@@ -45,4 +49,3 @@ export class UpdateOwnerDto {
   @MaxLength(2000)
   notes?: string | null;
 }
-

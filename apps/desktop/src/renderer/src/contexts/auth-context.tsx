@@ -233,6 +233,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (input: LoginInput) => {
+      accessTokenRef.current = null;
+      setUser(null);
+      setStatus('unauthenticated');
+      await getDesktopBridge().auth.clearRefreshToken();
+
       const response = await apiRequest<AuthResponse>('/auth/login', {
         method: 'POST',
         body: {

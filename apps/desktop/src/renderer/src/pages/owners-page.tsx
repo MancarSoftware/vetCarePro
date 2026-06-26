@@ -51,6 +51,10 @@ const emptyForm: OwnerForm = {
   notes: '',
 };
 
+function onlyDigits(value: string): string {
+  return value.replace(/\D/g, '').slice(0, 10);
+}
+
 function formFromOwner(owner: Owner): OwnerForm {
   return {
     firstName: owner.firstName,
@@ -111,7 +115,9 @@ export function OwnersPage() {
   }, [load, search]);
 
   const updateField = (field: keyof OwnerForm, value: string) => {
-    setForm((current) => ({ ...current, [field]: value }));
+    const nextValue =
+      field === 'nationalId' || field === 'phone' ? onlyDigits(value) : value;
+    setForm((current) => ({ ...current, [field]: nextValue }));
   };
 
   const openCreate = () => {
@@ -141,7 +147,7 @@ export function OwnersPage() {
             firstName: form.firstName.trim(),
             lastName: form.lastName.trim(),
             nationalId: optional(form.nationalId),
-            phone: form.phone.trim(),
+            phone: onlyDigits(form.phone),
             email: optional(form.email),
             address: optional(form.address),
             notes: optional(form.notes),
@@ -462,7 +468,10 @@ function OwnerFormModal({
           <div className="grid grid-cols-2 gap-3">
             <ClinicalField label="Cédula o identificación" optional>
               <input
-                maxLength={30}
+                inputMode="numeric"
+                pattern="\d{10}"
+                maxLength={10}
+                title="La cedula debe tener exactamente 10 digitos numericos"
                 value={form.nationalId}
                 onChange={(event) =>
                   onFieldChange('nationalId', event.target.value)
@@ -473,8 +482,11 @@ function OwnerFormModal({
             <ClinicalField label="Teléfono">
               <input
                 required
-                minLength={7}
-                maxLength={30}
+                inputMode="numeric"
+                pattern="\d{10}"
+                minLength={10}
+                maxLength={10}
+                title="El telefono debe tener exactamente 10 digitos numericos"
                 value={form.phone}
                 onChange={(event) =>
                   onFieldChange('phone', event.target.value)
