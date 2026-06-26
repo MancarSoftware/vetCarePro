@@ -589,8 +589,9 @@ export function RuntimeConfigPage({
 
               {mode === 'local' && (
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-500">
-                  Esta opcion mantiene el comportamiento de VetCare Pro 1.0.0:
-                  todo funciona en una sola computadora y no requiere configurar red.
+                  Esta opcion mantiene el comportamiento local clasico de
+                  VetCare Pro: todo funciona en una sola computadora y no
+                  requiere configurar red.
                 </div>
               )}
 

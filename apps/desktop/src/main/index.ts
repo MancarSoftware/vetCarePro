@@ -538,6 +538,28 @@ async function initializePostgresIfNeeded(env: NodeJS.ProcessEnv): Promise<void>
 }
 
 async function ensureDatabaseExists(env: NodeJS.ProcessEnv): Promise<void> {
+  const databaseExists = await runCommand(
+    postgresCommandPath('psql.exe'),
+    [
+      '-h',
+      '127.0.0.1',
+      '-p',
+      POSTGRES_PORT,
+      '-U',
+      POSTGRES_USER,
+      '-d',
+      'postgres',
+      '-tAc',
+      `SELECT 1 FROM pg_database WHERE datname='${POSTGRES_DATABASE}'`,
+    ],
+    { env, timeoutMs: 30000 },
+  );
+
+  if (databaseExists.trim() === '1') {
+    await runtimeLog(`Database ${POSTGRES_DATABASE} already exists.`);
+    return;
+  }
+
   try {
     await runCommand(
       postgresCommandPath('createdb.exe'),
@@ -555,7 +577,12 @@ async function ensureDatabaseExists(env: NodeJS.ProcessEnv): Promise<void> {
     await runtimeLog(`Database ${POSTGRES_DATABASE} created.`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    if (message.toLowerCase().includes('already exists')) {
+    const normalizedMessage = message.toLowerCase();
+    if (
+      normalizedMessage.includes('already exists') ||
+      normalizedMessage.includes('ya existe') ||
+      normalizedMessage.includes('existe')
+    ) {
       await runtimeLog(`Database ${POSTGRES_DATABASE} already exists.`);
       return;
     }
@@ -574,11 +601,13 @@ async function startEmbeddedPostgres(env: NodeJS.ProcessEnv): Promise<void> {
   const initdbExe = postgresCommandPath('initdb.exe');
   const createdbExe = postgresCommandPath('createdb.exe');
   const pgIsReadyExe = postgresCommandPath('pg_isready.exe');
+  const psqlExe = postgresCommandPath('psql.exe');
 
   await assertFileExists(postgresExe, 'PostgreSQL embebido');
   await assertFileExists(initdbExe, 'initdb embebido');
   await assertFileExists(createdbExe, 'createdb embebido');
   await assertFileExists(pgIsReadyExe, 'pg_isready embebido');
+  await assertFileExists(psqlExe, 'psql embebido');
 
   await initializePostgresIfNeeded(pgEnv);
 
