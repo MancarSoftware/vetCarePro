@@ -19,7 +19,7 @@ export type ExpenseCategory =
   | 'OTHER';
 
 export interface FinanceExpense {
-  id: string;
+  id: string; 
   category: ExpenseCategory;
   description: string;
   amount: number;
