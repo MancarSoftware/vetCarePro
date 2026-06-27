@@ -83,6 +83,17 @@ const appointmentStatusLabels: Record<string, string> = {
   COMPLETED: 'Atendida',
 };
 
+const appointmentTypeLabels: Record<Appointment['type'], string> = {
+  GENERAL_CONSULTATION: 'Consulta general',
+  VACCINATION: 'Vacunación',
+  FOLLOW_UP: 'Control',
+  SURGERY: 'Cirugía',
+  GROOMING: 'Baño y peluquería',
+  EMERGENCY: 'Emergencia',
+  DEWORMING: 'Desparasitación',
+  OTHER: 'Servicio veterinario',
+};
+
 function isManualCardMethod(method: PaymentMethod) {
   return (
     method === 'CARD' ||
@@ -119,9 +130,23 @@ function newLine(type: PaymentItemType): PaymentLineForm {
   };
 }
 
+function lineFromAppointment(appointment: Appointment): PaymentLineForm {
+  return {
+    ...newLine('SERVICE'),
+    description: appointmentTypeLabels[appointment.type],
+    quantity: '1',
+    unitPrice:
+      appointment.estimatedPrice !== null
+        ? String(Number(appointment.estimatedPrice))
+        : '',
+    discount: '0',
+  };
+}
+
 export function PaymentFormModal({
   owners,
   appointments,
+  initialAppointmentId,
   products,
   submitting,
   onClose,
@@ -129,23 +154,29 @@ export function PaymentFormModal({
 }: {
   owners: Owner[];
   appointments: Appointment[];
+  initialAppointmentId?: string;
   products: InventoryProduct[];
   submitting: boolean;
   onClose: () => void;
   onSubmit: (form: PaymentFormState) => Promise<void>;
 }) {
-  const [form, setForm] = useState<PaymentFormState>({
-    ownerId: '',
-    petId: '',
-    appointmentId: '',
+  const initialAppointment = initialAppointmentId
+    ? appointments.find((appointment) => appointment.id === initialAppointmentId)
+    : undefined;
+  const [form, setForm] = useState<PaymentFormState>(() => ({
+    ownerId: initialAppointment?.ownerId ?? '',
+    petId: initialAppointment?.petId ?? '',
+    appointmentId: initialAppointment?.id ?? '',
     reference: '',
     dueAt: '',
     notes: '',
-    items: [newLine('SERVICE')],
+    items: initialAppointment
+      ? [lineFromAppointment(initialAppointment)]
+      : [newLine('SERVICE')],
     initialAmount: '',
     method: 'CASH',
     paymentReference: '',
-  });
+  }));
   const [error, setError] = useState<string | null>(null);
   const owner = owners.find((item) => item.id === form.ownerId);
   const ownerAppointments = appointments.filter(
@@ -320,6 +351,17 @@ export function PaymentFormModal({
                     ...current,
                     appointmentId: event.target.value,
                     petId: appointment?.petId ?? current.petId,
+                    items: appointment
+                      ? [
+                          lineFromAppointment(appointment),
+                          ...current.items.filter(
+                            (item, index) =>
+                              index > 0 ||
+                              item.description.trim() ||
+                              item.productId,
+                          ),
+                        ]
+                      : current.items,
                   }));
                 }}
                 className={clinicalInputClass}
@@ -332,6 +374,9 @@ export function PaymentFormModal({
                     {' · '}
                     {appointmentStatusLabels[appointment.status] ??
                       appointment.status}
+                    {appointment.estimatedPrice !== null
+                      ? ` · $${Number(appointment.estimatedPrice).toFixed(2)}`
+                      : ''}
                   </option>
                 ))}
               </select>

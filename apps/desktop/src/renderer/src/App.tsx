@@ -31,6 +31,7 @@ function AuthenticatedApp() {
   const [currentPage, setCurrentPage] = useState<AppPage>('dashboard');
   const [historyPetId, setHistoryPetId] = useState<string>();
   const [appointmentPetId, setAppointmentPetId] = useState<string>();
+  const [paymentAppointmentId, setPaymentAppointmentId] = useState<string>();
   const [preventivePetId, setPreventivePetId] = useState<string>();
   const [treatmentTarget, setTreatmentTarget] = useState<{
     petId?: string;
@@ -49,6 +50,7 @@ function AuthenticatedApp() {
   const navigateToTarget = (target: NavigationTarget) => {
     setHistoryPetId(undefined);
     setAppointmentPetId(undefined);
+    setPaymentAppointmentId(undefined);
     setPreventivePetId(undefined);
     setTreatmentTarget({});
     setMediaTarget({});
@@ -115,6 +117,10 @@ function AuthenticatedApp() {
             setHistoryPetId(petId);
             setCurrentPage('history');
           }}
+          onCollectPayment={(appointmentId) => {
+            setPaymentAppointmentId(appointmentId);
+            setCurrentPage('payments');
+          }}
         />
       );
     }
@@ -166,7 +172,14 @@ function AuthenticatedApp() {
       );
     }
     if (currentPage === 'inventory') return <InventoryPage />;
-    if (currentPage === 'payments') return <PaymentsPage />;
+    if (currentPage === 'payments') {
+      return (
+        <PaymentsPage
+          initialAppointmentId={paymentAppointmentId}
+          onInitialAppointmentHandled={() => setPaymentAppointmentId(undefined)}
+        />
+      );
+    }
     if (currentPage === 'finance') return <FinancePage />;
     if (currentPage === 'reports') return <ReportsPage />;
     if (currentPage === 'backups') return <BackupsPage />;

@@ -91,7 +91,15 @@ const statusPresentation: Record<
   },
 };
 
-export function PaymentsPage() {
+interface PaymentsPageProps {
+  initialAppointmentId?: string;
+  onInitialAppointmentHandled?: () => void;
+}
+
+export function PaymentsPage({
+  initialAppointmentId,
+  onInitialAppointmentHandled,
+}: PaymentsPageProps = {}) {
   const { request, user } = useAuth();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [summary, setSummary] = useState(emptySummary);
@@ -106,6 +114,7 @@ export function PaymentsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [prefillAppointmentId, setPrefillAppointmentId] = useState<string>();
   const [detailPayment, setDetailPayment] = useState<Payment | null>(null);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [isTransactionOpen, setIsTransactionOpen] = useState(false);
@@ -137,7 +146,7 @@ export function PaymentsPage() {
       await Promise.allSettled([
         request<PaginatedResponse<Owner>>('/owners?page=1&pageSize=100'),
         request<PaginatedResponse<Appointment>>(
-          '/appointments?page=1&pageSize=100',
+          '/appointments?page=1&pageSize=300',
         ),
         user?.permissions.includes('inventory.read')
           ? request<PaginatedResponse<InventoryProduct>>(
@@ -201,6 +210,58 @@ export function PaymentsPage() {
   useEffect(() => {
     void loadReferences();
   }, [loadReferences]);
+
+  useEffect(() => {
+    if (!initialAppointmentId || isReferencesLoading) return;
+    let cancelled = false;
+
+    const openFromAppointment = async () => {
+      let appointment = appointments.find(
+        (item) => item.id === initialAppointmentId,
+      );
+      if (!appointment) {
+        try {
+          appointment = await request<Appointment>(
+            `/appointments/${initialAppointmentId}`,
+          );
+          if (!cancelled) {
+            setAppointments((current) =>
+              current.some((item) => item.id === appointment?.id)
+                ? current
+                : appointment
+                  ? [appointment, ...current]
+                  : current,
+            );
+          }
+        } catch {
+          if (!cancelled) {
+            setError(
+              'No se encontro la cita seleccionada para generar el cobro. Actualiza caja e intenta nuevamente.',
+            );
+            onInitialAppointmentHandled?.();
+          }
+          return;
+        }
+      }
+
+      if (cancelled) return;
+      setError(null);
+      setPrefillAppointmentId(initialAppointmentId);
+      setIsFormOpen(true);
+      onInitialAppointmentHandled?.();
+    };
+
+    void openFromAppointment();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    appointments,
+    initialAppointmentId,
+    isReferencesLoading,
+    onInitialAppointmentHandled,
+    request,
+  ]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void refresh(), 180);
@@ -267,6 +328,7 @@ export function PaymentsPage() {
         },
       });
       setIsFormOpen(false);
+      setPrefillAppointmentId(undefined);
       await refresh();
       setDetailPayment(payment);
     } finally {
@@ -360,6 +422,7 @@ export function PaymentsPage() {
                 );
                 return;
               }
+              setPrefillAppointmentId(undefined);
               setIsFormOpen(true);
             }}
             disabled={isReferencesLoading}
@@ -473,9 +536,13 @@ export function PaymentsPage() {
         <PaymentFormModal
           owners={owners}
           appointments={appointments}
+          initialAppointmentId={prefillAppointmentId}
           products={products}
           submitting={isSubmitting}
-          onClose={() => setIsFormOpen(false)}
+          onClose={() => {
+            setIsFormOpen(false);
+            setPrefillAppointmentId(undefined);
+          }}
           onSubmit={submitPayment}
         />
       )}

@@ -302,6 +302,7 @@ model Appointment {
   status         AppointmentStatus @default(PENDING)
   startsAt       DateTime
   endsAt         DateTime
+  estimatedPrice Decimal?          @db.Decimal(12, 2)
   reason         String?           @db.VarChar(255)
   notes          String?           @db.Text
   createdAt      DateTime          @default(now())

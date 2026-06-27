@@ -139,6 +139,7 @@ export interface Appointment {
   status: AppointmentStatus;
   startsAt: string;
   endsAt: string;
+  estimatedPrice: number | null;
   reason: string | null;
   notes: string | null;
   createdAt: string;

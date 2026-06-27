@@ -44,6 +44,7 @@ import {
   LoaderCircle,
   Pencil,
   Plus,
+  ReceiptText,
   Search,
   Stethoscope,
   Trash2,
@@ -63,6 +64,7 @@ type AgendaView = 'day' | 'week';
 interface AppointmentsPageProps {
   initialPetId?: string;
   onOpenHistory?: (petId: string) => void;
+  onCollectPayment?: (appointmentId: string) => void;
 }
 
 interface AppointmentFormState {
@@ -73,6 +75,7 @@ interface AppointmentFormState {
   date: string;
   time: string;
   duration: string;
+  estimatedPrice: string;
   reason: string;
   notes: string;
 }
@@ -168,6 +171,7 @@ function newAppointmentForm(
     date: format(slot, 'yyyy-MM-dd'),
     time: format(slot, 'HH:mm'),
     duration: '30',
+    estimatedPrice: '',
     reason: '',
     notes: '',
   };
@@ -187,6 +191,7 @@ function formFromAppointment(
     duration: String(
       differenceInMinutes(new Date(appointment.endsAt), startsAt),
     ),
+    estimatedPrice: appointment.estimatedPrice?.toString() ?? '',
     reason: appointment.reason ?? '',
     notes: appointment.notes ?? '',
   };
@@ -199,6 +204,7 @@ function formatOwner(pet: Pet | Appointment['pet']): string {
 export function AppointmentsPage({
   initialPetId,
   onOpenHistory,
+  onCollectPayment,
 }: AppointmentsPageProps) {
   const { request, user } = useAuth();
   const [view, setView] = useState<AgendaView>('day');
@@ -222,6 +228,8 @@ export function AppointmentsPage({
     useState<Appointment | null>(null);
   const canManage =
     user?.permissions.includes('appointments.manage') ?? false;
+  const canCollectPayment =
+    user?.permissions.includes('payments.manage') ?? false;
 
   const visibleStart = useMemo(
     () =>
@@ -353,6 +361,9 @@ export function AppointmentsPage({
             status: form.status,
             startsAt: startsAt.toISOString(),
             endsAt: endsAt.toISOString(),
+            estimatedPrice: form.estimatedPrice
+              ? Number(form.estimatedPrice)
+              : null,
             reason: form.reason.trim() || null,
             notes: form.notes.trim() || null,
           },
@@ -627,6 +638,8 @@ export function AppointmentsPage({
             onDelete={setDeletingAppointment}
             onStatusChange={handleStatusChange}
             onOpenHistory={onOpenHistory}
+            onCollectPayment={onCollectPayment}
+            canCollectPayment={canCollectPayment}
             onCreate={canManage ? openCreate : undefined}
           />
         ) : (
@@ -643,6 +656,8 @@ export function AppointmentsPage({
             onDelete={setDeletingAppointment}
             onStatusChange={handleStatusChange}
             onOpenHistory={onOpenHistory}
+            onCollectPayment={onCollectPayment}
+            canCollectPayment={canCollectPayment}
           />
         )}
       </Card>
@@ -694,6 +709,8 @@ interface AgendaActions {
     status: AppointmentStatus,
   ) => void;
   onOpenHistory?: (petId: string) => void;
+  onCollectPayment?: (appointmentId: string) => void;
+  canCollectPayment: boolean;
 }
 
 function DayAgenda({
@@ -835,13 +852,19 @@ function WeekAgenda({
 function AppointmentCard({
   appointment,
   canManage,
+  canCollectPayment,
   submitting,
   onEdit,
   onDelete,
   onStatusChange,
   onOpenHistory,
+  onCollectPayment,
 }: { appointment: Appointment } & AgendaActions) {
   const presentation = statusPresentation[appointment.status];
+  const canBillAppointment =
+    (appointment.status === 'CONFIRMED' ||
+      appointment.status === 'COMPLETED') &&
+    appointment._count.payments === 0;
   return (
     <article
       className={cn(
@@ -883,6 +906,11 @@ function AppointmentCard({
                 ? `Dr. ${appointment.veterinarian.firstName} ${appointment.veterinarian.lastName}`
                 : 'Profesional por asignar'}
             </span>
+            {appointment.estimatedPrice !== null && (
+              <span className="rounded-full bg-emerald-50 px-2 py-1 font-bold text-emerald-700">
+                ${Number(appointment.estimatedPrice).toFixed(2)}
+              </span>
+            )}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -904,6 +932,25 @@ function AppointmentCard({
                 </option>
               ))}
             </select>
+          )}
+          {appointment._count.payments > 0 ? (
+            <span className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">
+              Cobro generado
+            </span>
+          ) : (
+            canCollectPayment &&
+            canBillAppointment &&
+            onCollectPayment && (
+              <button
+                type="button"
+                onClick={() => onCollectPayment(appointment.id)}
+                className="inline-flex h-9 items-center gap-2 rounded-lg bg-teal-600 px-3 text-xs font-bold text-white shadow-sm shadow-teal-600/20 hover:bg-teal-700"
+                title="Generar cobro desde esta cita"
+              >
+                <ReceiptText className="size-4" />
+                Cobrar
+              </button>
+            )
           )}
           {onOpenHistory && (
             <button
@@ -1063,6 +1110,10 @@ function AppointmentFormModal({
       setFormError('Selecciona paciente, fecha y hora.');
       return;
     }
+    if (form.estimatedPrice && Number(form.estimatedPrice) < 0) {
+      setFormError('El valor estimado no puede ser negativo.');
+      return;
+    }
     try {
       await onSubmit(form);
     } catch (submitError) {
@@ -1180,7 +1231,7 @@ function AppointmentFormModal({
             </ClinicalField>
           </div>
 
-          <div className="mt-4 grid grid-cols-3 gap-4">
+          <div className="mt-4 grid grid-cols-4 gap-4">
             <ClinicalField label="Fecha">
               <input
                 required
@@ -1216,6 +1267,19 @@ function AppointmentFormModal({
                   </option>
                 ))}
               </select>
+            </ClinicalField>
+            <ClinicalField label="Valor estimado" optional>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.estimatedPrice}
+                onChange={(event) =>
+                  updateField('estimatedPrice', event.target.value)
+                }
+                placeholder="Ej. 25.00"
+                className={clinicalInputClass}
+              />
             </ClinicalField>
           </div>
 
