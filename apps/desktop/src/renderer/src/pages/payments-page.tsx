@@ -101,6 +101,8 @@ export function PaymentsPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isReferencesLoading, setIsReferencesLoading] = useState(true);
+  const [referencesError, setReferencesError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -129,26 +131,55 @@ export function PaymentsPage() {
   }, [request, search, statusFilter]);
 
   const loadReferences = useCallback(async () => {
-    const [ownerData, appointmentData, productData] = await Promise.all([
-      request<PaginatedResponse<Owner>>('/owners?page=1&pageSize=100'),
-      request<PaginatedResponse<Appointment>>(
-        '/appointments?page=1&pageSize=100',
-      ),
-      user?.permissions.includes('inventory.read')
-        ? request<PaginatedResponse<InventoryProduct>>(
-            '/inventory/products?page=1&pageSize=100&stockStatus=ALL',
-          )
-        : Promise.resolve({
-            items: [],
-            total: 0,
-            page: 1,
-            pageSize: 100,
-            totalPages: 1,
-          }),
-    ]);
-    setOwners(ownerData.items);
-    setAppointments(appointmentData.items);
-    setProducts(productData.items);
+    setIsReferencesLoading(true);
+    setReferencesError(null);
+    const [ownerResult, appointmentResult, productResult] =
+      await Promise.allSettled([
+        request<PaginatedResponse<Owner>>('/owners?page=1&pageSize=100'),
+        request<PaginatedResponse<Appointment>>(
+          '/appointments?page=1&pageSize=100',
+        ),
+        user?.permissions.includes('inventory.read')
+          ? request<PaginatedResponse<InventoryProduct>>(
+              '/inventory/products?page=1&pageSize=100&stockStatus=ALL',
+            )
+          : Promise.resolve({
+              items: [],
+              total: 0,
+              page: 1,
+              pageSize: 100,
+              totalPages: 1,
+            }),
+      ]);
+    const issues: string[] = [];
+
+    if (ownerResult.status === 'fulfilled') {
+      setOwners(ownerResult.value.items);
+    } else {
+      setOwners([]);
+      issues.push(
+        'No se pudieron cargar los dueños/clientes. Verifica que Caja tenga permiso para leer dueños y que esté conectado al servidor correcto.',
+      );
+    }
+
+    if (appointmentResult.status === 'fulfilled') {
+      setAppointments(appointmentResult.value.items);
+    } else {
+      setAppointments([]);
+      issues.push('No se pudieron cargar las citas para asociarlas al cobro.');
+    }
+
+    if (productResult.status === 'fulfilled') {
+      setProducts(productResult.value.items);
+    } else {
+      setProducts([]);
+      issues.push(
+        'No se pudo cargar inventario. Puedes seguir cobrando servicios, pero no productos.',
+      );
+    }
+
+    setReferencesError(issues.length ? issues.join(' ') : null);
+    setIsReferencesLoading(false);
   }, [request, user?.permissions]);
 
   const refresh = useCallback(async () => {
@@ -310,6 +341,19 @@ export function PaymentsPage() {
         {canManage && (
           <Button
             onClick={() => {
+              if (isReferencesLoading) {
+                setError(
+                  'VetCare Pro todavia esta cargando clientes, citas e inventario para caja. Intenta nuevamente en unos segundos.',
+                );
+                return;
+              }
+              if (referencesError) {
+                setError(referencesError);
+                if (owners.length === 0) {
+                  void loadReferences();
+                  return;
+                }
+              }
               if (owners.length === 0) {
                 setError(
                   'Primero debe existir al menos un dueño registrado para generar un cobro.',
@@ -318,10 +362,15 @@ export function PaymentsPage() {
               }
               setIsFormOpen(true);
             }}
+            disabled={isReferencesLoading}
             className="h-10 bg-teal-600 px-4 text-white shadow-lg shadow-teal-600/20 hover:bg-teal-700"
           >
-            <Plus className="size-4" />
-            Nuevo cobro
+            {isReferencesLoading ? (
+              <LoaderCircle className="size-4 animate-spin" />
+            ) : (
+              <Plus className="size-4" />
+            )}
+            {isReferencesLoading ? 'Cargando caja...' : 'Nuevo cobro'}
           </Button>
         )}
       </div>
