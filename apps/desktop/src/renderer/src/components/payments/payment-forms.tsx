@@ -76,6 +76,13 @@ const paymentMethodOptions: Array<{
   { value: 'OTHER', label: methodLabels.OTHER },
 ];
 
+const billableAppointmentStatuses = ['CONFIRMED', 'COMPLETED'] as const;
+
+const appointmentStatusLabels: Record<string, string> = {
+  CONFIRMED: 'Confirmada',
+  COMPLETED: 'Atendida',
+};
+
 function isManualCardMethod(method: PaymentMethod) {
   return (
     method === 'CARD' ||
@@ -142,7 +149,12 @@ export function PaymentFormModal({
   const [error, setError] = useState<string | null>(null);
   const owner = owners.find((item) => item.id === form.ownerId);
   const ownerAppointments = appointments.filter(
-    (appointment) => appointment.ownerId === form.ownerId,
+    (appointment) =>
+      appointment.ownerId === form.ownerId &&
+      billableAppointmentStatuses.includes(
+        appointment.status as (typeof billableAppointmentStatuses)[number],
+      ) &&
+      (!form.petId || appointment.petId === form.petId),
   );
   const totals = useMemo(() => calculateFormTotals(form.items), [form.items]);
 
@@ -182,6 +194,15 @@ export function PaymentFormModal({
     setError(null);
     if (!form.ownerId) {
       setError('Selecciona el cliente responsable.');
+      return;
+    }
+    if (
+      form.appointmentId &&
+      !ownerAppointments.some(
+        (appointment) => appointment.id === form.appointmentId,
+      )
+    ) {
+      setError('Solo puedes cobrar citas confirmadas o atendidas.');
       return;
     }
     if (
@@ -270,7 +291,13 @@ export function PaymentFormModal({
               <select
                 value={form.petId}
                 disabled={!owner}
-                onChange={(event) => update('petId', event.target.value)}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    petId: event.target.value,
+                    appointmentId: '',
+                  }))
+                }
                 className={clinicalInputClass}
               >
                 <option value="">Sin paciente asociado</option>
@@ -285,9 +312,16 @@ export function PaymentFormModal({
               <select
                 value={form.appointmentId}
                 disabled={!form.ownerId}
-                onChange={(event) =>
-                  update('appointmentId', event.target.value)
-                }
+                onChange={(event) => {
+                  const appointment = appointments.find(
+                    (item) => item.id === event.target.value,
+                  );
+                  setForm((current) => ({
+                    ...current,
+                    appointmentId: event.target.value,
+                    petId: appointment?.petId ?? current.petId,
+                  }));
+                }}
                 className={clinicalInputClass}
               >
                 <option value="">Sin cita asociada</option>
@@ -295,9 +329,17 @@ export function PaymentFormModal({
                   <option key={appointment.id} value={appointment.id}>
                     {appointment.pet.name} ·{' '}
                     {format(new Date(appointment.startsAt), 'dd/MM/yyyy HH:mm')}
+                    {' · '}
+                    {appointmentStatusLabels[appointment.status] ??
+                      appointment.status}
                   </option>
                 ))}
               </select>
+              {form.ownerId && ownerAppointments.length === 0 && (
+                <p className="mt-2 text-xs text-slate-400">
+                  Solo aparecen citas confirmadas o atendidas.
+                </p>
+              )}
             </ClinicalField>
           </div>
 

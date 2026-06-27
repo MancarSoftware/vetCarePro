@@ -309,8 +309,15 @@ export function PaymentsPage() {
         </div>
         {canManage && (
           <Button
-            onClick={() => setIsFormOpen(true)}
-            disabled={owners.length === 0}
+            onClick={() => {
+              if (owners.length === 0) {
+                setError(
+                  'Primero debe existir al menos un dueño registrado para generar un cobro.',
+                );
+                return;
+              }
+              setIsFormOpen(true);
+            }}
             className="h-10 bg-teal-600 px-4 text-white shadow-lg shadow-teal-600/20 hover:bg-teal-700"
           >
             <Plus className="size-4" />

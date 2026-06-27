@@ -9,6 +9,7 @@ import {
   PaymentItemType,
   PaymentMethod,
   PaymentStatus,
+  AppointmentStatus,
 } from '../../generated/prisma/enums';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePaymentTransactionDto } from './dto/create-payment-transaction.dto';
@@ -103,6 +104,11 @@ type PaymentList = Prisma.PaymentGetPayload<{
 type PaymentDetail = Prisma.PaymentGetPayload<{
   include: typeof paymentDetailInclude;
 }>;
+
+const BILLABLE_APPOINTMENT_STATUSES: AppointmentStatus[] = [
+  AppointmentStatus.CONFIRMED,
+  AppointmentStatus.COMPLETED,
+];
 
 @Injectable()
 export class PaymentsService {
@@ -764,12 +770,17 @@ export class PaymentsService {
           deletedAt: null,
           ...(petId ? { petId } : {}),
         },
-        select: { id: true },
+        select: { id: true, status: true },
       })
       .then((appointment) => {
         if (!appointment) {
           throw new NotFoundException(
             'La cita no existe o no corresponde al cliente seleccionado',
+          );
+        }
+        if (!BILLABLE_APPOINTMENT_STATUSES.includes(appointment.status)) {
+          throw new BadRequestException(
+            'Solo se pueden cobrar citas confirmadas o atendidas',
           );
         }
         return appointment;
