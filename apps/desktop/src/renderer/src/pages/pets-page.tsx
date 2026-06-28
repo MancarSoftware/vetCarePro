@@ -125,6 +125,13 @@ export function PetsPage({
   const [deletingPet, setDeletingPet] = useState<Pet | null>(null);
   const [form, setForm] = useState<PetForm>(emptyForm);
   const canManage = user?.permissions.includes('pets.manage') ?? false;
+  const canReadHistory = user?.permissions.includes('medical.read') ?? false;
+  const canReadAppointments =
+    user?.permissions.includes('appointments.read') ?? false;
+  const canReadPreventive =
+    user?.permissions.includes('vaccines.read') ?? false;
+  const canReadTreatments =
+    user?.permissions.includes('treatments.read') ?? false;
 
   const loadPets = useCallback(
     async (term: string, species: string) => {
@@ -378,6 +385,10 @@ export function PetsPage({
                 key={pet.id}
                 pet={pet}
                 canManage={canManage}
+                canReadHistory={canReadHistory}
+                canReadAppointments={canReadAppointments}
+                canReadPreventive={canReadPreventive}
+                canReadTreatments={canReadTreatments}
                 onEdit={() => openEdit(pet)}
                 onDelete={() => setDeletingPet(pet)}
                 onOpenHistory={() => onOpenHistory?.(pet.id)}
@@ -445,6 +456,10 @@ function EmptyPets({
 function PetCard({
   pet,
   canManage,
+  canReadHistory,
+  canReadAppointments,
+  canReadPreventive,
+  canReadTreatments,
   onEdit,
   onDelete,
   onOpenHistory,
@@ -455,6 +470,10 @@ function PetCard({
 }: {
   pet: Pet;
   canManage: boolean;
+  canReadHistory: boolean;
+  canReadAppointments: boolean;
+  canReadPreventive: boolean;
+  canReadTreatments: boolean;
   onEdit: () => void;
   onDelete: () => void;
   onOpenHistory: () => void;
@@ -520,6 +539,7 @@ function PetCard({
         </div>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2">
+        {canReadHistory && (
         <button
           type="button"
           onClick={onOpenHistory}
@@ -528,6 +548,8 @@ function PetCard({
           <BookOpen className="size-4" />
           Historial
         </button>
+        )}
+        {canReadAppointments && (
         <button
           type="button"
           onClick={onOpenAppointments}
@@ -536,6 +558,8 @@ function PetCard({
           <CalendarDays className="size-4" />
           Citas
         </button>
+        )}
+        {canReadHistory && (
         <button
           type="button"
           onClick={onOpenMedia}
@@ -544,6 +568,8 @@ function PetCard({
           <Images className="size-4" />
           Archivos
         </button>
+        )}
+        {canReadPreventive && (
         <button
           type="button"
           onClick={onOpenPreventive}
@@ -552,6 +578,8 @@ function PetCard({
           <ShieldPlus className="size-4" />
           Prevención
         </button>
+        )}
+        {canReadTreatments && (
         <button
           type="button"
           onClick={onOpenTreatments}
@@ -560,6 +588,7 @@ function PetCard({
           <Activity className="size-4" />
           Tratamientos y evolución
         </button>
+        )}
       </div>
     </article>
   );

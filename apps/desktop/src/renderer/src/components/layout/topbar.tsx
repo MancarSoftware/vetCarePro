@@ -69,6 +69,24 @@ const notificationToneClasses: Record<AppNotification['tone'], string> = {
   danger: 'bg-rose-50 text-rose-700 ring-rose-100',
 };
 
+const targetPermissions: Partial<Record<NavigationTarget['page'], string>> = {
+  dashboard: 'dashboard.read',
+  pets: 'pets.read',
+  owners: 'owners.read',
+  appointments: 'appointments.read',
+  history: 'medical.read',
+  media: 'medical.read',
+  preventive: 'vaccines.read',
+  treatments: 'treatments.read',
+  payments: 'payments.read',
+  finance: 'finance.read',
+  inventory: 'inventory.read',
+  reports: 'reports.read',
+  backups: 'backups.manage',
+  users: 'users.read',
+  settings: 'settings.manage',
+};
+
 export function Topbar({
   user,
   onLogout,
@@ -93,6 +111,13 @@ export function Topbar({
 
   const primaryRole = roleLabels[user.roles[0]] ?? user.roles[0] ?? 'Usuario';
   const canManageBackups = user.permissions.includes('backups.manage');
+  const canNavigateToTarget = useCallback(
+    (target: NavigationTarget) => {
+      const permission = targetPermissions[target.page];
+      return !permission || user.permissions.includes(permission);
+    },
+    [user.permissions],
+  );
 
   const quickActions = useMemo(
     () =>
@@ -220,8 +245,8 @@ export function Topbar({
       });
     }
 
-    return items.slice(0, 12);
-  }, [dashboard, failedBackups]);
+    return items.filter((item) => canNavigateToTarget(item.target)).slice(0, 12);
+  }, [canNavigateToTarget, dashboard, failedBackups]);
 
   const loadNotifications = useCallback(async () => {
     try {

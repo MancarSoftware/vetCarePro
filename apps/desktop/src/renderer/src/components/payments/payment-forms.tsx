@@ -187,6 +187,7 @@ export function PaymentFormModal({
       billableAppointmentStatuses.includes(
         appointment.status as (typeof billableAppointmentStatuses)[number],
       ) &&
+      appointment._count.payments === 0 &&
       (!form.petId || appointment.petId === form.petId),
   );
   const totals = useMemo(() => calculateFormTotals(form.items), [form.items]);

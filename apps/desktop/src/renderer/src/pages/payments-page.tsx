@@ -142,11 +142,19 @@ export function PaymentsPage({
   const loadReferences = useCallback(async () => {
     setIsReferencesLoading(true);
     setReferencesError(null);
-    const [ownerResult, appointmentResult, productResult] =
+    const [
+      ownerResult,
+      confirmedAppointmentResult,
+      completedAppointmentResult,
+      productResult,
+    ] =
       await Promise.allSettled([
         request<PaginatedResponse<Owner>>('/owners?page=1&pageSize=100'),
         request<PaginatedResponse<Appointment>>(
-          '/appointments?page=1&pageSize=300',
+          '/appointments?page=1&pageSize=300&status=CONFIRMED',
+        ),
+        request<PaginatedResponse<Appointment>>(
+          '/appointments?page=1&pageSize=300&status=COMPLETED',
         ),
         user?.permissions.includes('inventory.read')
           ? request<PaginatedResponse<InventoryProduct>>(
@@ -171,9 +179,22 @@ export function PaymentsPage({
       );
     }
 
-    if (appointmentResult.status === 'fulfilled') {
-      setAppointments(appointmentResult.value.items);
-    } else {
+    const appointmentItems = [
+      ...(confirmedAppointmentResult.status === 'fulfilled'
+        ? confirmedAppointmentResult.value.items
+        : []),
+      ...(completedAppointmentResult.status === 'fulfilled'
+        ? completedAppointmentResult.value.items
+        : []),
+    ].filter(
+      (appointment, index, all) =>
+        all.findIndex((item) => item.id === appointment.id) === index,
+    );
+    setAppointments(appointmentItems);
+    if (
+      confirmedAppointmentResult.status === 'rejected' &&
+      completedAppointmentResult.status === 'rejected'
+    ) {
       setAppointments([]);
       issues.push('No se pudieron cargar las citas para asociarlas al cobro.');
     }
@@ -418,15 +439,6 @@ export function PaymentsPage({
                 return;
               }
               void openCreatePayment();
-              return;
-              if (owners.length === 0) {
-                setError(
-                  'Primero debe existir al menos un dueño registrado para generar un cobro.',
-                );
-                return;
-              }
-              setPrefillAppointmentId(undefined);
-              setIsFormOpen(true);
             }}
             disabled={isReferencesLoading}
             className="h-10 bg-teal-600 px-4 text-white shadow-lg shadow-teal-600/20 hover:bg-teal-700"

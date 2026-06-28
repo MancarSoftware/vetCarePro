@@ -26,6 +26,24 @@ import { UsersPage } from '@/pages/users-page';
 import type { NavigationTarget } from '@/types/global-search';
 import { useState } from 'react';
 
+const pagePermissions: Partial<Record<AppPage, string>> = {
+  dashboard: 'dashboard.read',
+  pets: 'pets.read',
+  owners: 'owners.read',
+  appointments: 'appointments.read',
+  history: 'medical.read',
+  media: 'medical.read',
+  preventive: 'vaccines.read',
+  treatments: 'treatments.read',
+  payments: 'payments.read',
+  finance: 'finance.read',
+  inventory: 'inventory.read',
+  reports: 'reports.read',
+  backups: 'backups.manage',
+  users: 'users.read',
+  settings: 'settings.manage',
+};
+
 function AuthenticatedApp() {
   const { user, logout } = useAuth();
   const [currentPage, setCurrentPage] = useState<AppPage>('dashboard');
@@ -46,6 +64,15 @@ function AuthenticatedApp() {
   if (!user) {
     return null;
   }
+
+  const canAccessPage = (page: AppPage) => {
+    const permission = pagePermissions[page];
+    return !permission || user.permissions.includes(permission);
+  };
+
+  const goToPage = (page: AppPage) => {
+    setCurrentPage(canAccessPage(page) ? page : 'dashboard');
+  };
 
   const navigateToTarget = (target: NavigationTarget) => {
     setHistoryPetId(undefined);
@@ -78,32 +105,35 @@ function AuthenticatedApp() {
       });
     }
 
-    setCurrentPage(target.page);
+    goToPage(target.page);
   };
 
   const renderPage = () => {
+    if (!canAccessPage(currentPage)) {
+      return <DashboardPage />;
+    }
     if (currentPage === 'pets') {
       return (
         <PetsPage
           onOpenHistory={(petId) => {
             setHistoryPetId(petId);
-            setCurrentPage('history');
+            goToPage('history');
           }}
           onOpenMedia={(petId) => {
             setMediaTarget({ petId });
-            setCurrentPage('media');
+            goToPage('media');
           }}
           onOpenPreventive={(petId) => {
             setPreventivePetId(petId);
-            setCurrentPage('preventive');
+            goToPage('preventive');
           }}
           onOpenAppointments={(petId) => {
             setAppointmentPetId(petId);
-            setCurrentPage('appointments');
+            goToPage('appointments');
           }}
           onOpenTreatments={(petId) => {
             setTreatmentTarget({ petId });
-            setCurrentPage('treatments');
+            goToPage('treatments');
           }}
         />
       );
@@ -115,11 +145,11 @@ function AuthenticatedApp() {
           initialPetId={appointmentPetId}
           onOpenHistory={(petId) => {
             setHistoryPetId(petId);
-            setCurrentPage('history');
+            goToPage('history');
           }}
           onCollectPayment={(appointmentId) => {
             setPaymentAppointmentId(appointmentId);
-            setCurrentPage('payments');
+            goToPage('payments');
           }}
         />
       );
@@ -130,15 +160,15 @@ function AuthenticatedApp() {
           initialPetId={historyPetId}
           onOpenMedia={(petId, medicalRecordId) => {
             setMediaTarget({ petId, medicalRecordId });
-            setCurrentPage('media');
+            goToPage('media');
           }}
           onOpenPreventive={(petId) => {
             setPreventivePetId(petId);
-            setCurrentPage('preventive');
+            goToPage('preventive');
           }}
           onOpenTreatments={(petId, medicalRecordId) => {
             setTreatmentTarget({ petId, medicalRecordId });
-            setCurrentPage('treatments');
+            goToPage('treatments');
           }}
         />
       );
@@ -162,11 +192,11 @@ function AuthenticatedApp() {
           initialMedicalRecordId={treatmentTarget.medicalRecordId}
           onOpenHistory={(petId) => {
             setHistoryPetId(petId);
-            setCurrentPage('history');
+            goToPage('history');
           }}
           onOpenMedia={(petId, treatmentId) => {
             setMediaTarget({ petId, treatmentId });
-            setCurrentPage('media');
+            goToPage('media');
           }}
         />
       );
@@ -189,19 +219,19 @@ function AuthenticatedApp() {
       <DashboardPage
         onOpenAppointments={() => {
           setAppointmentPetId(undefined);
-          setCurrentPage('appointments');
+          goToPage('appointments');
         }}
         onOpenPreventive={() => {
           setPreventivePetId(undefined);
-          setCurrentPage('preventive');
+          goToPage('preventive');
         }}
         onOpenTreatments={() => {
           setTreatmentTarget({});
-          setCurrentPage('treatments');
+          goToPage('treatments');
         }}
-        onOpenInventory={() => setCurrentPage('inventory')}
-        onOpenPayments={() => setCurrentPage('payments')}
-        onOpenFinance={() => setCurrentPage('finance')}
+        onOpenInventory={() => goToPage('inventory')}
+        onOpenPayments={() => goToPage('payments')}
+        onOpenFinance={() => goToPage('finance')}
       />
     );
   };
