@@ -14,8 +14,9 @@ import { InitialPaymentDto } from './initial-payment.dto';
 import { PaymentItemDto } from './payment-item.dto';
 
 export class CreatePaymentDto {
+  @IsOptional()
   @IsUUID()
-  ownerId!: string;
+  ownerId?: string;
 
   @IsOptional()
   @IsUUID()

@@ -36,6 +36,7 @@ export interface PaymentLineForm {
 }
 
 export interface PaymentFormState {
+  walkInSale: boolean;
   ownerId: string;
   petId: string;
   appointmentId: string;
@@ -164,6 +165,7 @@ export function PaymentFormModal({
     ? appointments.find((appointment) => appointment.id === initialAppointmentId)
     : undefined;
   const [form, setForm] = useState<PaymentFormState>(() => ({
+    walkInSale: false,
     ownerId: initialAppointment?.ownerId ?? '',
     petId: initialAppointment?.petId ?? '',
     appointmentId: initialAppointment?.id ?? '',
@@ -223,11 +225,16 @@ export function PaymentFormModal({
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
-    if (!form.ownerId) {
+    if (!form.walkInSale && !form.ownerId) {
       setError('Selecciona el cliente responsable.');
       return;
     }
+    if (form.walkInSale && form.items.some((item) => item.type !== 'PRODUCT')) {
+      setError('La venta mostrador solo puede contener productos.');
+      return;
+    }
     if (
+      !form.walkInSale &&
       form.appointmentId &&
       !ownerAppointments.some(
         (appointment) => appointment.id === form.appointmentId,
@@ -262,7 +269,7 @@ export function PaymentFormModal({
       return;
     }
     if (
-      Number(form.initialAmount || 0) > 0 &&
+      (form.walkInSale ? totals.total : Number(form.initialAmount || 0)) > 0 &&
       isManualCardMethod(form.method) &&
       !form.paymentReference.trim()
     ) {
@@ -270,7 +277,11 @@ export function PaymentFormModal({
       return;
     }
     try {
-      await onSubmit(form);
+      await onSubmit(
+        form.walkInSale
+          ? { ...form, initialAmount: totals.total.toFixed(2) }
+          : form,
+      );
     } catch (submitError) {
       setError(
         submitError instanceof Error
@@ -295,11 +306,43 @@ export function PaymentFormModal({
             </p>
           )}
 
+          <div className="mb-5 rounded-2xl border border-teal-100 bg-teal-50/70 p-4">
+            <label className="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={form.walkInSale}
+                onChange={(event) => {
+                  const checked = event.target.checked;
+                  setForm((current) => ({
+                    ...current,
+                    walkInSale: checked,
+                    ownerId: checked ? '' : current.ownerId,
+                    petId: '',
+                    appointmentId: '',
+                    dueAt: checked ? '' : current.dueAt,
+                    items: checked ? [newLine('PRODUCT')] : current.items,
+                    initialAmount: checked ? '' : current.initialAmount,
+                  }));
+                }}
+                className="mt-1 size-4 accent-teal-600"
+              />
+              <span>
+                <span className="block text-sm font-black text-slate-900">
+                  Venta mostrador / consumidor final
+                </span>
+                <span className="mt-1 block text-xs leading-5 text-slate-500">
+                  Usar para productos vendidos al momento sin registrar un cliente real. Se guarda como pagado y descuenta inventario.
+                </span>
+              </span>
+            </label>
+          </div>
+
           <div className="grid grid-cols-3 gap-4">
             <ClinicalField label="Cliente responsable">
               <select
-                required
+                required={!form.walkInSale}
                 value={form.ownerId}
+                disabled={form.walkInSale}
                 onChange={(event) =>
                   setForm((current) => ({
                     ...current,
@@ -310,7 +353,11 @@ export function PaymentFormModal({
                 }
                 className={clinicalInputClass}
               >
-                <option value="">Seleccionar cliente</option>
+                <option value="">
+                  {form.walkInSale
+                    ? 'Consumidor final automatico'
+                    : 'Seleccionar cliente'}
+                </option>
                 {owners.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.firstName} {item.lastName} · {item.phone}
@@ -321,7 +368,7 @@ export function PaymentFormModal({
             <ClinicalField label="Mascota" optional>
               <select
                 value={form.petId}
-                disabled={!owner}
+                disabled={!owner || form.walkInSale}
                 onChange={(event) =>
                   setForm((current) => ({
                     ...current,
@@ -342,7 +389,7 @@ export function PaymentFormModal({
             <ClinicalField label="Cita relacionada" optional>
               <select
                 value={form.appointmentId}
-                disabled={!form.ownerId}
+                disabled={!form.ownerId || form.walkInSale}
                 onChange={(event) => {
                   const appointment = appointments.find(
                     (item) => item.id === event.target.value,
@@ -380,7 +427,7 @@ export function PaymentFormModal({
                   </option>
                 ))}
               </select>
-              {form.ownerId && ownerAppointments.length === 0 && (
+              {form.ownerId && ownerAppointments.length === 0 && !form.walkInSale && (
                 <p className="mt-2 text-xs text-slate-400">
                   Solo aparecen citas confirmadas o atendidas.
                 </p>
@@ -400,6 +447,7 @@ export function PaymentFormModal({
               </div>
               <div className="flex gap-2">
                 <Button
+                  disabled={form.walkInSale}
                   onClick={() =>
                     update('items', [...form.items, newLine('SERVICE')])
                   }
@@ -435,6 +483,7 @@ export function PaymentFormModal({
                     <ClinicalField label="Tipo">
                       <select
                         value={item.type}
+                        disabled={form.walkInSale}
                         onChange={(event) => {
                           const type = event.target.value as PaymentItemType;
                           setForm((current) => ({
@@ -632,15 +681,25 @@ export function PaymentFormModal({
                 </div>
               </div>
               <p className="mt-4 text-xs font-bold uppercase tracking-wider text-teal-300">
-                Pago inicial opcional
+                {form.walkInSale ? 'Pago de venta mostrador' : 'Pago inicial opcional'}
               </p>
+              {form.walkInSale && (
+                <p className="mt-2 text-xs leading-5 text-slate-400">
+                  Se registrara pagada por el total del documento.
+                </p>
+              )}
               <div className="mt-3 grid grid-cols-2 gap-3">
                 <input
                   type="number"
                   min="0"
                   max={totals.total}
                   step="0.01"
-                  value={form.initialAmount}
+                  disabled={form.walkInSale}
+                  value={
+                    form.walkInSale && totals.total > 0
+                      ? totals.total.toFixed(2)
+                      : form.initialAmount
+                  }
                   onChange={(event) =>
                     update('initialAmount', event.target.value)
                   }

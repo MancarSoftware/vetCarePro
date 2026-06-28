@@ -207,6 +207,14 @@ export function PaymentsPage({
     }
   }, [loadPayments]);
 
+  const openCreatePayment = async () => {
+    setError(null);
+    setIsReferencesLoading(true);
+    await loadReferences();
+    setPrefillAppointmentId(undefined);
+    setIsFormOpen(true);
+  };
+
   useEffect(() => {
     void loadReferences();
   }, [loadReferences]);
@@ -296,7 +304,7 @@ export function PaymentsPage({
       const payment = await request<Payment>('/payments', {
         method: 'POST',
         body: {
-          ownerId: form.ownerId,
+          ownerId: optional(form.ownerId),
           petId: optional(form.petId),
           appointmentId: optional(form.appointmentId),
           reference: optional(form.reference),
@@ -409,13 +417,8 @@ export function PaymentsPage({
                 );
                 return;
               }
-              if (referencesError) {
-                setError(referencesError);
-                if (owners.length === 0) {
-                  void loadReferences();
-                  return;
-                }
-              }
+              void openCreatePayment();
+              return;
               if (owners.length === 0) {
                 setError(
                   'Primero debe existir al menos un dueño registrado para generar un cobro.',

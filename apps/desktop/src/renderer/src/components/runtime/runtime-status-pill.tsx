@@ -9,7 +9,7 @@ import {
   RefreshCw,
   Server,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 type ConnectionState = 'checking' | 'online' | 'offline';
 
@@ -72,6 +72,7 @@ async function fallbackHealthCheck(
 export function RuntimeStatusPill() {
   const { config, openConfigurator } = useRuntimeConfig();
   const [open, setOpen] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<ConnectionState>('checking');
   const [lastResult, setLastResult] =
     useState<VetCareConnectionTestResult | null>(null);
@@ -141,6 +142,29 @@ export function RuntimeStatusPill() {
     };
   }, [config.mode]);
 
+  useEffect(() => {
+    if (!open) return;
+
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    const closeOnScroll = () => setOpen(false);
+
+    document.addEventListener('pointerdown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    window.addEventListener('scroll', closeOnScroll, true);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+      window.removeEventListener('scroll', closeOnScroll, true);
+    };
+  }, [open]);
+
   const statusLabel =
     status === 'checking'
       ? 'Verificando'
@@ -149,7 +173,7 @@ export function RuntimeStatusPill() {
         : 'Sin conexion';
 
   return (
-    <div className="relative hidden lg:block">
+    <div ref={panelRef} className="relative hidden lg:block">
       <button
         type="button"
         onClick={() => {

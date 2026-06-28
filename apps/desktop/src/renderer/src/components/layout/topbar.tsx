@@ -89,6 +89,7 @@ export function Topbar({
   const [dashboard, setDashboard] = useState<DashboardSummary | null>(null);
   const [failedBackups, setFailedBackups] = useState<BackupRecord[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const notificationsRef = useRef<HTMLDivElement>(null);
 
   const primaryRole = roleLabels[user.roles[0]] ?? user.roles[0] ?? 'Usuario';
   const canManageBackups = user.permissions.includes('backups.manage');
@@ -274,6 +275,32 @@ export function Topbar({
   }, [searchOpen]);
 
   useEffect(() => {
+    if (!notificationsOpen) return;
+
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (
+        notificationsRef.current &&
+        !notificationsRef.current.contains(event.target as Node)
+      ) {
+        setNotificationsOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setNotificationsOpen(false);
+    };
+    const closeOnScroll = () => setNotificationsOpen(false);
+
+    document.addEventListener('pointerdown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    window.addEventListener('scroll', closeOnScroll, true);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+      window.removeEventListener('scroll', closeOnScroll, true);
+    };
+  }, [notificationsOpen]);
+
+  useEffect(() => {
     if (!searchOpen) return;
     const term = query.trim();
     setSelectedIndex(0);
@@ -353,7 +380,10 @@ export function Topbar({
     <header className="sticky top-0 z-20 flex h-[76px] items-center border-b border-slate-200 bg-white/95 px-7 backdrop-blur">
       <button
         type="button"
-        onClick={() => setSearchOpen(true)}
+        onClick={() => {
+          setNotificationsOpen(false);
+          setSearchOpen(true);
+        }}
         className="relative mx-auto h-11 w-full max-w-2xl rounded-xl border border-slate-200 bg-slate-50/70 pl-12 pr-20 text-left text-sm text-slate-500 outline-none transition hover:border-teal-200 hover:bg-white hover:text-slate-700"
       >
         <Search className="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-slate-400" />
@@ -366,7 +396,7 @@ export function Topbar({
       <div className="ml-auto flex items-center gap-5 pl-8">
         <RuntimeStatusPill />
 
-        <div className="relative">
+        <div ref={notificationsRef} className="relative">
           <button
             type="button"
             onClick={() => {

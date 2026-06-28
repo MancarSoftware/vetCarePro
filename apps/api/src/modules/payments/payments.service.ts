@@ -267,7 +267,23 @@ export class PaymentsService {
   }
 
   async create(actorId: string, dto: CreatePaymentDto) {
-    const owner = await this.ensureOwner(dto.ownerId);
+    const isWalkInSale = !dto.ownerId;
+    if (isWalkInSale) {
+      if (dto.petId || dto.appointmentId) {
+        throw new BadRequestException(
+          'Una venta mostrador no puede asociarse a mascota o cita',
+        );
+      }
+      if (dto.items.some((item) => item.type !== PaymentItemType.PRODUCT)) {
+        throw new BadRequestException(
+          'Las ventas mostrador solo pueden contener productos',
+        );
+      }
+    }
+
+    const owner = dto.ownerId
+      ? await this.ensureOwner(dto.ownerId)
+      : await this.ensureWalkInOwner();
     const pet = dto.petId
       ? await this.ensurePet(dto.petId, owner.id)
       : null;
@@ -339,6 +355,11 @@ export class PaymentsService {
     if (initialAmount > total) {
       throw new BadRequestException(
         'El pago inicial no puede superar el total del documento',
+      );
+    }
+    if (isWalkInSale && initialAmount < total) {
+      throw new BadRequestException(
+        'Las ventas mostrador deben registrarse pagadas en el momento',
       );
     }
     if (dto.initialPayment) {
@@ -739,6 +760,27 @@ export class PaymentsService {
         if (!owner) throw new NotFoundException('El dueño no existe');
         return owner;
       });
+  }
+
+  private ensureWalkInOwner() {
+    return this.prisma.owner.upsert({
+      where: { nationalId: 'VETCARE-CONSUMIDOR-FINAL' },
+      update: {
+        firstName: 'Consumidor',
+        lastName: 'Final',
+        phone: '0000000000',
+        notes: 'Cliente interno automatico para ventas mostrador.',
+        deletedAt: null,
+      },
+      create: {
+        firstName: 'Consumidor',
+        lastName: 'Final',
+        nationalId: 'VETCARE-CONSUMIDOR-FINAL',
+        phone: '0000000000',
+        notes: 'Cliente interno automatico para ventas mostrador.',
+      },
+      select: { id: true },
+    });
   }
 
   private ensurePet(petId: string, ownerId: string) {
