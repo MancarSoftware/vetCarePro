@@ -65,6 +65,10 @@ const browserBridge: Window['vetcare'] = {
   },
   runtime: {
     getConfig: async () => getBrowserRuntimeConfig(),
+    getDeviceIdentity: async () => ({
+      deviceId: 'browser-preview-device',
+      deviceName: 'Browser Preview',
+    }),
     getLanAddresses: async () => [],
     saveConfig: async () => getBrowserRuntimeConfig(),
     testConnection: async () => {
@@ -120,6 +124,24 @@ function getDeviceName(): string {
   const platform =
     bridge.platform === 'win32' ? 'Windows' : bridge.platform;
   return `VetCare Pro Desktop Â· ${platform}`;
+}
+
+async function registerLanClientIfNeeded(): Promise<void> {
+  const bridge = getDesktopBridge();
+  const config = await bridge.runtime.getConfig();
+  if (config.mode !== 'lan-client') {
+    return;
+  }
+
+  const identity = await bridge.runtime.getDeviceIdentity();
+  await apiRequest('/lan-license/register-device', {
+    method: 'POST',
+    body: {
+      deviceId: identity.deviceId,
+      deviceName: identity.deviceName,
+      runtimeMode: 'lan-client',
+    },
+  });
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -237,6 +259,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setStatus('unauthenticated');
       await getDesktopBridge().auth.clearRefreshToken();
+      await registerLanClientIfNeeded();
 
       const response = await apiRequest<AuthResponse>('/auth/login', {
         method: 'POST',
@@ -284,6 +307,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const restore = async () => {
       try {
+        await registerLanClientIfNeeded();
         const setup = await apiRequest<SetupStatus>('/auth/setup-status');
         if (!active) return;
         if (setup.setupRequired) {

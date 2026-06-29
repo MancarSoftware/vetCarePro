@@ -16,6 +16,7 @@
     "local:doctor": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/doctor.ps1",
     "local:prepare": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/prepare-local.ps1",
     "local:start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/start-local.ps1",
+    "license:generate": "node scripts/license/generate-license.js",
     "release:runtime": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/prepare-release-runtime.ps1",
     "package:win": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/package-windows.ps1",
     "package:win:dir": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/windows/package-windows.ps1 -DirOnly",

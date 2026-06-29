@@ -7,6 +7,7 @@ import {
   screen,
   shell,
 } from 'electron';
+import { randomUUID } from 'node:crypto';
 import { createWriteStream, existsSync } from 'node:fs';
 import {
   access,
@@ -20,17 +21,20 @@ import {
 import type { ChildProcess } from 'node:child_process';
 import { spawn } from 'node:child_process';
 import { delimiter, dirname, join } from 'node:path';
-import { networkInterfaces } from 'node:os';
+import { hostname, networkInterfaces } from 'node:os';
 import {
   normalizeRuntimeConfig,
   persistedRuntimeConfig,
   type SaveVetCareRuntimeConfigInput,
+  type VetCareDeviceIdentity,
   type VetCareConnectionTestResult,
   type VetCareLanAddress,
   type VetCareRuntimeConfig,
 } from '../shared/runtime-config';
 const REFRESH_TOKEN_FILE = 'session.bin';
 const RUNTIME_CONFIG_FILE = 'runtime-config.json';
+const DEVICE_ID_FILE = 'device-id.txt';
+const DEFAULT_SUPPORT_CODE = 'VCP-SOPORTE-110';
 const LOCAL_DATA_DIR = 'C:\\VetCarePro';
 const POSTGRES_PORT = '54529';
 const POSTGRES_USER = 'vetcare';
@@ -49,6 +53,10 @@ function getRuntimeConfigPath(): string {
   return join(app.getPath('userData'), RUNTIME_CONFIG_FILE);
 }
 
+function getDeviceIdPath(): string {
+  return join(app.getPath('userData'), DEVICE_ID_FILE);
+}
+
 function definedRuntimeInput(
   input: SaveVetCareRuntimeConfigInput,
 ): SaveVetCareRuntimeConfigInput {
@@ -63,6 +71,38 @@ function definedRuntimeInput(
     output.apiPort = input.apiPort;
   }
   return output;
+}
+
+function supportCode(): string {
+  return process.env.VETCARE_SUPPORT_CODE ?? DEFAULT_SUPPORT_CODE;
+}
+
+function didRuntimeConnectionChange(
+  current: VetCareRuntimeConfig,
+  next: VetCareRuntimeConfig,
+): boolean {
+  return (
+    current.configured &&
+    (current.mode !== next.mode ||
+      current.serverHost !== next.serverHost ||
+      current.apiPort !== next.apiPort)
+  );
+}
+
+function assertTechnicalCode(
+  input: SaveVetCareRuntimeConfigInput,
+  current: VetCareRuntimeConfig,
+  next: VetCareRuntimeConfig,
+): void {
+  if (!didRuntimeConnectionChange(current, next)) {
+    return;
+  }
+
+  if ((input.technicalCode ?? '').trim() !== supportCode()) {
+    throw new Error(
+      'Codigo tecnico incorrecto. Solicita soporte para cambiar la configuracion LAN.',
+    );
+  }
 }
 
 function runtimeConfigFromEnvironment(): SaveVetCareRuntimeConfigInput {
@@ -118,6 +158,9 @@ async function saveRuntimeConfig(
     ...definedRuntimeInput(input),
     configured: true,
   });
+
+  assertTechnicalCode(input, current, config);
+
   const configPath = getRuntimeConfigPath();
 
   await mkdir(dirname(configPath), { recursive: true });
@@ -127,6 +170,28 @@ async function saveRuntimeConfig(
     'utf8',
   );
   return config;
+}
+
+async function getDeviceIdentity(): Promise<VetCareDeviceIdentity> {
+  const devicePath = getDeviceIdPath();
+  let deviceId = '';
+
+  try {
+    deviceId = (await readFile(devicePath, 'utf8')).trim();
+  } catch {
+    deviceId = '';
+  }
+
+  if (!deviceId) {
+    deviceId = `vcp-${randomUUID()}`;
+    await mkdir(dirname(devicePath), { recursive: true });
+    await writeFile(devicePath, `${deviceId}\n`, 'utf8');
+  }
+
+  return {
+    deviceId,
+    deviceName: hostname() || 'VetCare Pro PC',
+  };
 }
 
 function classifyLanAddress(name: string): Omit<VetCareLanAddress, 'name' | 'address'> {
@@ -719,6 +784,7 @@ async function startEmbeddedRuntime(
 
 function registerRuntimeConfigHandlers(): void {
   ipcMain.handle('runtime:get-config', async () => readRuntimeConfig());
+  ipcMain.handle('runtime:get-device-identity', async () => getDeviceIdentity());
   ipcMain.handle('runtime:get-lan-addresses', () => getLanAddresses());
   ipcMain.handle(
     'runtime:save-config',

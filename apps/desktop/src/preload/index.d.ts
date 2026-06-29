@@ -19,6 +19,12 @@ declare global {
     mode?: VetCareRuntimeMode | string;
     serverHost?: string;
     apiPort?: number | string;
+    technicalCode?: string;
+  }
+
+  interface VetCareDeviceIdentity {
+    deviceId: string;
+    deviceName: string;
   }
 
   interface VetCareConnectionTestResult {
@@ -47,6 +53,7 @@ declare global {
       };
       runtime: {
         getConfig: () => Promise<VetCareRuntimeConfig>;
+        getDeviceIdentity: () => Promise<VetCareDeviceIdentity>;
         getLanAddresses: () => Promise<VetCareLanAddress[]>;
         saveConfig: (
           input: SaveVetCareRuntimeConfigInput,

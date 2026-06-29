@@ -22,6 +22,27 @@ async function resolveApiBaseUrl(): Promise<string> {
   return FALLBACK_API_URL;
 }
 
+async function resolveDeviceHeaders(): Promise<Record<string, string>> {
+  try {
+    const [config, identity] = await Promise.all([
+      window.vetcare?.runtime.getConfig(),
+      window.vetcare?.runtime.getDeviceIdentity(),
+    ]);
+
+    return {
+      ...(config?.mode ? { 'X-VetCare-Runtime-Mode': config.mode } : {}),
+      ...(identity?.deviceId
+        ? { 'X-VetCare-Device-Id': identity.deviceId }
+        : {}),
+      ...(identity?.deviceName
+        ? { 'X-VetCare-Device-Name': identity.deviceName }
+        : {}),
+    };
+  } catch {
+    return {};
+  }
+}
+
 interface ApiErrorPayload {
   message?: string | string[];
 }
@@ -76,10 +97,12 @@ async function performRequest(
   }
   try {
     const apiBaseUrl = await resolveApiBaseUrl();
+    const deviceHeaders = await resolveDeviceHeaders();
     return await fetch(`${apiBaseUrl}${path}`, {
       method: options.method ?? 'GET',
       headers: {
         Accept: 'application/json',
+        ...deviceHeaders,
         ...(options.body && !formData
           ? { 'Content-Type': 'application/json' }
           : {}),

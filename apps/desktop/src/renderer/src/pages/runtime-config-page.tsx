@@ -154,12 +154,22 @@ export function RuntimeConfigPage({
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
   const [showFirewallHelp, setShowFirewallHelp] = useState(false);
   const [copiedFirewallCommand, setCopiedFirewallCommand] = useState(false);
+  const [technicalCode, setTechnicalCode] = useState('');
+  const [licenseKey, setLicenseKey] = useState('');
+  const [licenseMessage, setLicenseMessage] = useState<string | null>(null);
 
   const selectedMode = useMemo(
     () => modeOptions.find((option) => option.mode === mode) ?? modeOptions[0],
     [mode],
   );
   const preview = apiPreview(mode, serverHost, apiPort);
+  const normalizedServerHost =
+    mode === 'lan-client' ? serverHost.trim() : '127.0.0.1';
+  const requiresTechnicalCode =
+    initialConfig.configured &&
+    (initialConfig.mode !== mode ||
+      initialConfig.serverHost !== normalizedServerHost ||
+      String(initialConfig.apiPort) !== String(Number(apiPort || '4782')));
   const firewallCommand = `New-NetFirewallRule -DisplayName "VetCare Pro API LAN" -Direction Inbound -Protocol TCP -LocalPort ${
     apiPort || '4782'
   } -Action Allow -Profile Private`;
@@ -189,8 +199,9 @@ export function RuntimeConfigPage({
 
   const buildInput = () => ({
     mode,
-    serverHost: mode === 'lan-client' ? serverHost.trim() : '127.0.0.1',
+    serverHost: normalizedServerHost,
     apiPort: apiPort || '4782',
+    technicalCode: technicalCode.trim(),
   });
 
   const testRuntimeConnection = async (input: ReturnType<typeof buildInput>) =>
@@ -250,9 +261,15 @@ export function RuntimeConfigPage({
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
+    setLicenseMessage(null);
 
     if (mode === 'lan-client' && !serverHost.trim()) {
       setError('Ingresa la IP de la PC servidor. Ejemplo: 192.168.1.10');
+      return;
+    }
+
+    if ((requiresTechnicalCode || licenseKey.trim()) && !technicalCode.trim()) {
+      setError('Ingresa el codigo tecnico para guardar este cambio.');
       return;
     }
 
@@ -283,6 +300,35 @@ export function RuntimeConfigPage({
             healthUrl: `${preview}/health`,
             updatedAt: new Date().toISOString(),
           };
+
+      if (mode === 'lan-server' && licenseKey.trim()) {
+        const response = await fetch(`${saved.apiBaseUrl}/lan-license/activate`, {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            licenseKey: licenseKey.trim(),
+            technicalCode: technicalCode.trim(),
+          }),
+        });
+
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => null)) as {
+            message?: string | string[];
+          } | null;
+          const message = Array.isArray(payload?.message)
+            ? payload?.message[0]
+            : payload?.message;
+          throw new Error(
+            message ?? 'No fue posible activar la licencia LAN.',
+          );
+        }
+
+        setLicenseMessage('Licencia LAN activada correctamente.');
+      }
+
       onConfigured(saved);
     } catch (saveError) {
       setError(
@@ -592,6 +638,53 @@ export function RuntimeConfigPage({
                   Esta opcion mantiene el comportamiento local clasico de
                   VetCare Pro: todo funciona en una sola computadora y no
                   requiere configurar red.
+                </div>
+              )}
+
+              {mode === 'lan-server' && (
+                <label className="block">
+                  <span className="mb-2 block text-sm font-bold text-slate-700">
+                    Licencia LAN del servidor
+                  </span>
+                  <textarea
+                    value={licenseKey}
+                    onChange={(event) => {
+                      setLicenseKey(event.target.value);
+                      setLicenseMessage(null);
+                    }}
+                    rows={3}
+                    placeholder="Pega aqui la licencia generada por soporte"
+                    className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 font-mono text-xs font-semibold text-slate-800 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10"
+                  />
+                  <p className="mt-2 text-xs leading-5 text-slate-400">
+                    Esta licencia se ingresa solo en la PC servidor. Las PCs
+                    cliente solo usan la IP del servidor.
+                  </p>
+                </label>
+              )}
+
+              {(initialConfig.configured || mode === 'lan-server') && (
+                <label className="block">
+                  <span className="mb-2 block text-sm font-bold text-slate-700">
+                    Codigo tecnico
+                  </span>
+                  <input
+                    value={technicalCode}
+                    onChange={(event) => setTechnicalCode(event.target.value)}
+                    placeholder="VCP-SOPORTE-110"
+                    className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10"
+                  />
+                  <p className="mt-2 text-xs leading-5 text-slate-400">
+                    Se solicita para cambiar el modo de trabajo o activar una
+                    licencia LAN desde una instalacion ya configurada.
+                  </p>
+                </label>
+              )}
+
+              {licenseMessage && (
+                <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-800">
+                  <CheckCircle2 className="mt-0.5 size-5 shrink-0" />
+                  <p>{licenseMessage}</p>
                 </div>
               )}
 

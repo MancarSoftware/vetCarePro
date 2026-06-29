@@ -25,6 +25,12 @@ export interface SaveVetCareRuntimeConfigInput {
   mode?: VetCareRuntimeMode | string;
   serverHost?: string;
   apiPort?: number | string;
+  technicalCode?: string;
+}
+
+export interface VetCareDeviceIdentity {
+  deviceId: string;
+  deviceName: string;
 }
 
 export interface VetCareConnectionTestResult {

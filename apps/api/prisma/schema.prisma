@@ -697,3 +697,41 @@ model BackupRecord {
   @@index([createdAt])
   @@map("backup_records")
 }
+
+model LanLicense {
+  id             String      @id @default(uuid()) @db.Uuid
+  licenseKey     String      @unique @db.VarChar(1800)
+  licenseId      String      @unique @db.VarChar(80)
+  clinicName     String      @db.VarChar(180)
+  clientLimit    Int
+  issuedAt       DateTime
+  expiresAt      DateTime?
+  activatedAt    DateTime    @default(now())
+  revokedAt      DateTime?
+  payload        Json
+  signature      String      @db.VarChar(128)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  devices        LanDevice[]
+
+  @@index([revokedAt])
+  @@map("lan_licenses")
+}
+
+model LanDevice {
+  id           String     @id @default(uuid()) @db.Uuid
+  licenseId    String     @db.Uuid
+  deviceId     String     @unique @db.VarChar(120)
+  deviceName   String     @db.VarChar(180)
+  runtimeMode  String     @db.VarChar(40)
+  firstSeenAt  DateTime   @default(now())
+  lastSeenAt   DateTime   @default(now())
+  authorizedAt DateTime   @default(now())
+  revokedAt    DateTime?
+  notes        String?    @db.Text
+  license      LanLicense @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+
+  @@index([licenseId, revokedAt])
+  @@index([lastSeenAt])
+  @@map("lan_devices")
+}
