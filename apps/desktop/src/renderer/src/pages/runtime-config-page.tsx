@@ -669,9 +669,10 @@ export function RuntimeConfigPage({
                     Codigo tecnico
                   </span>
                   <input
+                    type="password"
                     value={technicalCode}
                     onChange={(event) => setTechnicalCode(event.target.value)}
-                    placeholder="VCP-SOPORTE-110"
+                    placeholder="Ingresa el codigo tecnico de soporte"
                     className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10"
                   />
                   <p className="mt-2 text-xs leading-5 text-slate-400">
