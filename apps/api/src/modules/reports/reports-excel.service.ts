@@ -86,31 +86,39 @@ export class ReportsExcelService {
     );
 
     this.kpi(sheet, 'A4:B7', 'Ingresos cobrados', summary.financial.income, 'money', palette.teal);
-    this.kpi(sheet, 'C4:D7', 'Saldo por cobrar', summary.financial.outstanding, 'money', palette.amber);
-    this.kpi(sheet, 'E4:F7', 'Citas atendidas', summary.appointments.completed, 'number', palette.blue);
-    this.kpi(sheet, 'G4:H7', 'Vacunas pendientes', summary.clinical.vaccinesPending, 'number', palette.rose);
+    this.kpi(sheet, 'C4:D7', 'Gastos operativos', summary.financial.expenses, 'money', palette.rose);
+    this.kpi(sheet, 'E4:F7', 'Utilidad neta', summary.financial.netIncome, 'money', summary.financial.netIncome >= 0 ? palette.emerald : palette.rose);
+    this.kpi(sheet, 'G4:H7', 'Margen neto', summary.financial.margin, 'percent', summary.financial.margin >= 0 ? palette.blue : palette.rose);
 
-    this.sectionTitle(sheet, 'A9:D9', 'Ingresos por mes');
-    const monthRows = summary.financial.incomeByMonth.length
-      ? summary.financial.incomeByMonth
-      : [{ month: 'Sin datos', total: 0 }];
+    this.sectionTitle(sheet, 'A9:E9', 'Rentabilidad por mes');
+    const monthRows = summary.financial.monthlySeries.length
+      ? summary.financial.monthlySeries
+      : [{ month: 'Sin datos', income: 0, expenses: 0, netIncome: 0, margin: 0 }];
     sheet.getCell('A10').value = 'Mes';
     sheet.getCell('B10').value = 'Ingresos';
-    sheet.getCell('C10').value = 'Visual';
-    this.header(sheet, 'A10:C10');
+    sheet.getCell('C10').value = 'Gastos';
+    sheet.getCell('D10').value = 'Utilidad neta';
+    sheet.getCell('E10').value = 'Margen';
+    this.header(sheet, 'A10:E10');
     monthRows.forEach((item, index) => {
       const row = 11 + index;
       sheet.getCell(row, 1).value = item.month;
-      sheet.getCell(row, 2).value = item.total;
+      sheet.getCell(row, 2).value = item.income;
       sheet.getCell(row, 2).numFmt = '$#,##0.00';
-      sheet.getCell(row, 3).value = {
-        formula: `REPT("█",MAX(1,ROUND(B${row}/MAX($B$11:$B$${10 + monthRows.length})*24,0)))`,
+      sheet.getCell(row, 3).value = item.expenses;
+      sheet.getCell(row, 3).numFmt = '$#,##0.00';
+      sheet.getCell(row, 4).value = item.netIncome;
+      sheet.getCell(row, 4).numFmt = '$#,##0.00';
+      sheet.getCell(row, 4).font = {
+        bold: true,
+        color: { argb: item.netIncome >= 0 ? palette.emerald : palette.rose },
       };
-      sheet.getCell(row, 3).font = { color: { argb: palette.teal }, bold: true };
+      sheet.getCell(row, 5).value = item.margin / 100;
+      sheet.getCell(row, 5).numFmt = '0.0%';
     });
-    this.tableFrame(sheet, `A10:C${10 + monthRows.length}`);
+    this.tableFrame(sheet, `A10:E${10 + monthRows.length}`);
 
-    this.sectionTitle(sheet, 'E9:H9', 'Agenda y operación');
+    this.sectionTitle(sheet, 'F9:H9', 'Agenda y operación');
     const agenda = [
       ['Total de citas', summary.appointments.total, palette.slate],
       ['Atendidas', summary.appointments.completed, palette.emerald],
@@ -121,14 +129,14 @@ export class ReportsExcelService {
     ];
     agenda.forEach((item, index) => {
       const row = 10 + index;
-      sheet.getCell(row, 5).value = item[0] as string;
-      sheet.getCell(row, 6).value = item[1] as number;
-      sheet.getCell(row, 7).value = {
-        formula: `IF($F$10=0,"",REPT("█",ROUND(F${row}/$F$10*18,0)))`,
+      sheet.getCell(row, 6).value = item[0] as string;
+      sheet.getCell(row, 7).value = item[1] as number;
+      sheet.getCell(row, 8).value = {
+        formula: `IF($G$10=0,"",REPT("█",ROUND(G${row}/$G$10*18,0)))`,
       };
-      sheet.getCell(row, 7).font = { color: { argb: item[2] as string }, bold: true };
+      sheet.getCell(row, 8).font = { color: { argb: item[2] as string }, bold: true };
     });
-    this.tableFrame(sheet, 'E10:G15');
+    this.tableFrame(sheet, 'F10:H15');
 
     this.sectionTitle(sheet, 'A20:D20', 'Top productos vendidos');
     const products = summary.inventory.productsSold.length
@@ -175,27 +183,52 @@ export class ReportsExcelService {
     const sheet = this.moduleSheet(workbook, 'Finanzas', 'Finanzas y cobranza');
     const rows: Array<[string, number]> = [
       ['Ingresos cobrados', summary.financial.income],
+      ['Gastos operativos', summary.financial.expenses],
+      ['Utilidad neta', summary.financial.netIncome],
+      ['Margen neto %', summary.financial.margin],
       ['Saldo por cobrar', summary.financial.outstanding],
       ['Saldo vencido', summary.financial.overdueAmount],
       ['Documentos pagados', summary.financial.paidDocuments],
       ['Documentos pendientes', summary.financial.pendingDocuments],
       ['Ticket promedio', summary.financial.averageTicket],
     ];
-    this.writeMetricTable(sheet, 'A4:B10', ['Indicador', 'Valor'], rows, 'moneyMixed');
+    this.writeMetricTable(sheet, 'A4:B13', ['Indicador', 'Valor'], rows, 'moneyMixed');
 
-    this.setValues(sheet, 'D4', [['Mes', 'Ingresos', 'Visual']]);
-    this.header(sheet, 'D4:F4');
-    summary.financial.incomeByMonth.forEach((item, index) => {
+    this.setValues(sheet, 'D4', [['Mes', 'Ingresos', 'Gastos', 'Utilidad neta', 'Margen']]);
+    this.header(sheet, 'D4:H4');
+    const monthlyRows = summary.financial.monthlySeries.length
+      ? summary.financial.monthlySeries
+      : [{ month: 'Sin datos', income: 0, expenses: 0, netIncome: 0, margin: 0 }];
+    monthlyRows.forEach((item, index) => {
       const row = 5 + index;
       sheet.getCell(row, 4).value = item.month;
-      sheet.getCell(row, 5).value = item.total;
+      sheet.getCell(row, 5).value = item.income;
       sheet.getCell(row, 5).numFmt = '$#,##0.00';
-      sheet.getCell(row, 6).value = {
-        formula: `REPT("█",MAX(1,ROUND(E${row}/MAX($E$5:$E$${4 + summary.financial.incomeByMonth.length})*22,0)))`,
+      sheet.getCell(row, 6).value = item.expenses;
+      sheet.getCell(row, 6).numFmt = '$#,##0.00';
+      sheet.getCell(row, 7).value = item.netIncome;
+      sheet.getCell(row, 7).numFmt = '$#,##0.00';
+      sheet.getCell(row, 7).font = {
+        bold: true,
+        color: { argb: item.netIncome >= 0 ? palette.emerald : palette.rose },
       };
-      sheet.getCell(row, 6).font = { color: { argb: palette.teal }, bold: true };
+      sheet.getCell(row, 8).value = item.margin / 100;
+      sheet.getCell(row, 8).numFmt = '0.0%';
     });
-    this.tableFrame(sheet, `D4:F${Math.max(5, 4 + summary.financial.incomeByMonth.length)}`);
+    this.tableFrame(sheet, `D4:H${Math.max(5, 4 + monthlyRows.length)}`);
+
+    this.setValues(sheet, 'A16', [['Categoria de gasto', 'Total']]);
+    this.header(sheet, 'A16:B16');
+    const categoryRows = summary.financial.expensesByCategory.length
+      ? summary.financial.expensesByCategory
+      : [{ category: 'Sin gastos', total: 0 }];
+    categoryRows.forEach((item, index) => {
+      const row = 17 + index;
+      sheet.getCell(row, 1).value = item.category;
+      sheet.getCell(row, 2).value = item.total;
+      sheet.getCell(row, 2).numFmt = '$#,##0.00';
+    });
+    this.tableFrame(sheet, `A16:B${16 + categoryRows.length}`);
   }
 
   private buildAppointmentsSheet(workbook: ExcelJS.Workbook, summary: ReportsSummary) {
@@ -310,9 +343,11 @@ export class ReportsExcelService {
       const row = start.top + 1 + index;
       const col = start.left;
       sheet.getCell(row, col).value = label;
-      sheet.getCell(row, col + 1).value = value;
-      sheet.getCell(row, col + 1).numFmt =
-        format === 'number' || Number.isInteger(value) ? '#,##0' : '$#,##0.00';
+      const valueCell = sheet.getCell(row, col + 1);
+      const isPercent = label.includes('%');
+      const isCount = label.startsWith('Documentos') || format === 'number';
+      valueCell.value = isPercent ? value / 100 : value;
+      valueCell.numFmt = isPercent ? '0.0%' : isCount ? '#,##0' : '$#,##0.00';
     });
     this.tableFrame(sheet, this.rangeByIndexes(start.top, start.left, rows.length + 1, headers.length));
   }
@@ -380,12 +415,18 @@ export class ReportsExcelService {
     range: string,
     label: string,
     value: number,
-    format: 'money' | 'number',
+    format: 'money' | 'number' | 'percent',
     color: string,
   ) {
     sheet.mergeCells(range);
     const cell = sheet.getCell(range.split(':')[0]);
-    cell.value = `${label}\n${format === 'money' ? '$' : ''}${format === 'money' ? value.toLocaleString('en-US', { minimumFractionDigits: 2 }) : value.toLocaleString('en-US')}`;
+    const formatted =
+      format === 'money'
+        ? `$${value.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+        : format === 'percent'
+          ? `${value.toLocaleString('en-US', { maximumFractionDigits: 1 })}%`
+          : value.toLocaleString('en-US');
+    cell.value = `${label}\n${formatted}`;
     cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
     cell.font = { bold: true, size: 13, color: { argb: color } };
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: palette.white } };
@@ -520,10 +561,33 @@ export class ReportsExcelService {
         { section: 'Finanzas', indicator: 'Documentos pagados', detail: '', value: summary.financial.paidDocuments },
         { section: 'Finanzas', indicator: 'Documentos pendientes', detail: '', value: summary.financial.pendingDocuments },
         { section: 'Finanzas', indicator: 'Ticket promedio', detail: '', value: summary.financial.averageTicket },
+        { section: 'Finanzas', indicator: 'Gastos operativos', detail: '', value: summary.financial.expenses },
+        { section: 'Finanzas', indicator: 'Utilidad neta', detail: '', value: summary.financial.netIncome },
+        { section: 'Finanzas', indicator: 'Margen neto', detail: '', value: `${summary.financial.margin}%` },
         ...summary.financial.incomeByMonth.map((item) => ({
           section: 'Finanzas',
           indicator: 'Ingresos por mes',
           detail: item.month,
+          value: item.total,
+        })),
+        ...summary.financial.monthlySeries.flatMap((item) => [
+          {
+            section: 'Finanzas',
+            indicator: 'Gastos por mes',
+            detail: item.month,
+            value: item.expenses,
+          },
+          {
+            section: 'Finanzas',
+            indicator: 'Utilidad neta por mes',
+            detail: item.month,
+            value: item.netIncome,
+          },
+        ]),
+        ...summary.financial.expensesByCategory.map((item) => ({
+          section: 'Finanzas',
+          indicator: 'Gastos por categoria',
+          detail: item.category,
           value: item.total,
         })),
       );

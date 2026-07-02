@@ -640,7 +640,18 @@ export interface ReportsSummary {
     paidDocuments: number;
     pendingDocuments: number;
     averageTicket: number;
+    expenses: number;
+    netIncome: number;
+    margin: number;
     incomeByMonth: Array<{ month: string; total: number }>;
+    expensesByCategory: Array<{ category: ExpenseCategory; total: number }>;
+    monthlySeries: Array<{
+      month: string;
+      income: number;
+      expenses: number;
+      netIncome: number;
+      margin: number;
+    }>;
   };
   appointments: {
     total: number;

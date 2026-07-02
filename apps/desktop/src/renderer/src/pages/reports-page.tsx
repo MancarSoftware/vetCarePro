@@ -94,7 +94,12 @@ const emptySummary: ReportsSummary = {
     paidDocuments: 0,
     pendingDocuments: 0,
     averageTicket: 0,
+    expenses: 0,
+    netIncome: 0,
+    margin: 0,
     incomeByMonth: [],
+    expensesByCategory: [],
+    monthlySeries: [],
   },
   appointments: {
     total: 0,
@@ -134,7 +139,7 @@ const emptySummary: ReportsSummary = {
 export function ReportsPage() {
   const { request, requestBlob } = useAuth();
   const [dateFrom, setDateFrom] = useState(() =>
-    dateInputValue(new Date(new Date().getFullYear(), new Date().getMonth(), 1)),
+    dateInputValue(new Date(new Date().getFullYear(), 0, 1)),
   );
   const [dateTo, setDateTo] = useState(() => dateInputValue(new Date()));
   const [section, setSection] = useState<ReportSection>('all');
@@ -359,8 +364,8 @@ export function ReportsPage() {
             <Card className="overflow-hidden">
               <PanelHeader
                 icon={BarChart3}
-                title="Ingresos por mes"
-                detail={`Ticket promedio ${currency.format(data.financial.averageTicket)}`}
+                title="Ingresos, gastos y utilidad neta"
+                detail={`Neto ${currency.format(data.financial.netIncome)} · Margen ${decimal.format(data.financial.margin)}%`}
               />
               <div className="h-[310px] px-4 pb-4 pt-6">
                 <ResponsiveContainer
@@ -370,7 +375,7 @@ export function ReportsPage() {
                   minHeight={240}
                   initialDimension={{ width: 820, height: 280 }}
                 >
-                  <BarChart data={data.financial.incomeByMonth}>
+                  <BarChart data={data.financial.monthlySeries}>
                     <CartesianGrid
                       strokeDasharray="3 3"
                       vertical={false}
@@ -390,9 +395,13 @@ export function ReportsPage() {
                     />
                     <Tooltip
                       cursor={{ fill: '#f8fafc' }}
-                      formatter={(value) => [
+                      formatter={(value, name) => [
                         currency.format(Number(value ?? 0)),
-                        'Ingresos',
+                        name === 'income'
+                          ? 'Ingresos'
+                          : name === 'expenses'
+                            ? 'Gastos'
+                            : 'Utilidad neta',
                       ]}
                       contentStyle={{
                         borderRadius: 14,
@@ -402,10 +411,22 @@ export function ReportsPage() {
                       }}
                     />
                     <Bar
-                      dataKey="total"
+                      dataKey="income"
                       fill="#0f9b9a"
                       radius={[8, 8, 0, 0]}
-                      maxBarSize={42}
+                      maxBarSize={34}
+                    />
+                    <Bar
+                      dataKey="expenses"
+                      fill="#f43f5e"
+                      radius={[8, 8, 0, 0]}
+                      maxBarSize={34}
+                    />
+                    <Bar
+                      dataKey="netIncome"
+                      fill="#22c55e"
+                      radius={[8, 8, 0, 0]}
+                      maxBarSize={34}
                     />
                   </BarChart>
                 </ResponsiveContainer>

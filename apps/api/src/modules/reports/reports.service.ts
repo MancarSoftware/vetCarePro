@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client';
 import {
   AppointmentStatus,
+  ExpenseCategory,
   PaymentItemType,
   PaymentStatus,
   TreatmentStatus,
@@ -33,7 +34,18 @@ export interface ReportsSummary {
     paidDocuments: number;
     pendingDocuments: number;
     averageTicket: number;
+    expenses: number;
+    netIncome: number;
+    margin: number;
     incomeByMonth: Array<{ month: string; total: number }>;
+    expensesByCategory: Array<{ category: ExpenseCategory; total: number }>;
+    monthlySeries: Array<{
+      month: string;
+      income: number;
+      expenses: number;
+      netIncome: number;
+      margin: number;
+    }>;
   };
   appointments: {
     total: number;
@@ -107,6 +119,7 @@ export class ReportsService {
       products,
       expiringBatches,
       productItems,
+      expenseRows,
     ] = await this.prisma.$transaction([
       this.prisma.paymentTransaction.findMany({
         where: {
@@ -243,6 +256,17 @@ export class ReportsService {
           product: { select: { name: true } },
         },
       }),
+      this.prisma.financeExpense.findMany({
+        where: {
+          deletedAt: null,
+          occurredAt: { gte: range.from, lte: range.to },
+        },
+        select: {
+          category: true,
+          amount: true,
+          occurredAt: true,
+        },
+      }),
     ]);
 
     const income = this.money(
@@ -251,6 +275,14 @@ export class ReportsService {
         0,
       ),
     );
+    const expenses = this.money(
+      expenseRows.reduce(
+        (total, expense) => total + expense.amount.toNumber(),
+        0,
+      ),
+    );
+    const netIncome = this.money(income - expenses);
+    const margin = income > 0 ? this.money((netIncome / income) * 100) : 0;
     const paidDocuments = payments.filter(
       (payment) => payment.status === PaymentStatus.PAID,
     ).length;
@@ -295,7 +327,17 @@ export class ReportsService {
         paidDocuments,
         pendingDocuments,
         averageTicket: paidDocuments ? this.money(income / paidDocuments) : 0,
+        expenses,
+        netIncome,
+        margin,
         incomeByMonth: this.incomeByMonth(range.from, range.to, transactions),
+        expensesByCategory: this.expensesByCategory(expenseRows),
+        monthlySeries: this.monthlySeries(
+          range.from,
+          range.to,
+          transactions,
+          expenseRows,
+        ),
       },
       appointments: {
         total: appointments.length,
@@ -428,6 +470,90 @@ export class ReportsService {
     return months.map(({ month, total }) => ({ month, total }));
   }
 
+  private expensesByCategory(
+    expenses: Array<{ category: ExpenseCategory; amount: { toNumber(): number } }>,
+  ) {
+    const totals = new Map<ExpenseCategory, number>();
+    for (const expense of expenses) {
+      totals.set(
+        expense.category,
+        this.money((totals.get(expense.category) ?? 0) + expense.amount.toNumber()),
+      );
+    }
+    return [...totals.entries()]
+      .map(([category, total]) => ({ category, total }))
+      .sort((a, b) => b.total - a.total);
+  }
+
+  private monthlySeries(
+    from: Date,
+    to: Date,
+    transactions: Array<{ amount: { toNumber(): number }; receivedAt: Date }>,
+    expenses: Array<{ amount: { toNumber(): number }; occurredAt: Date }>,
+  ) {
+    const formatter = new Intl.DateTimeFormat('es-EC', {
+      month: 'short',
+      year: '2-digit',
+    });
+    const months: Array<{
+      date: Date;
+      month: string;
+      income: number;
+      expenses: number;
+      netIncome: number;
+      margin: number;
+    }> = [];
+    let cursor = new Date(from.getFullYear(), from.getMonth(), 1);
+    const last = new Date(to.getFullYear(), to.getMonth(), 1);
+
+    while (cursor.getTime() <= last.getTime()) {
+      months.push({
+        date: new Date(cursor),
+        month: formatter.format(cursor).replace('.', ''),
+        income: 0,
+        expenses: 0,
+        netIncome: 0,
+        margin: 0,
+      });
+      cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+    }
+
+    for (const transaction of transactions) {
+      const item = this.monthBucket(months, transaction.receivedAt);
+      if (item) {
+        item.income = this.money(item.income + transaction.amount.toNumber());
+      }
+    }
+    for (const expense of expenses) {
+      const item = this.monthBucket(months, expense.occurredAt);
+      if (item) {
+        item.expenses = this.money(item.expenses + expense.amount.toNumber());
+      }
+    }
+
+    return months.map((item) => {
+      const netIncome = this.money(item.income - item.expenses);
+      return {
+        month: item.month,
+        income: item.income,
+        expenses: item.expenses,
+        netIncome,
+        margin: item.income > 0 ? this.money((netIncome / item.income) * 100) : 0,
+      };
+    });
+  }
+
+  private monthBucket<T extends { date: Date }>(
+    items: T[],
+    date: Date,
+  ): T | undefined {
+    return items.find(
+      (item) =>
+        item.date.getFullYear() === date.getFullYear() &&
+        item.date.getMonth() === date.getMonth(),
+    );
+  }
+
   private countByStatus(
     appointments: Array<{ status: AppointmentStatus }>,
     status: AppointmentStatus,
@@ -534,9 +660,34 @@ export class ReportsService {
           '',
           String(summary.financial.averageTicket),
         ],
+        [
+          'Finanzas',
+          'Gastos',
+          '',
+          String(summary.financial.expenses),
+        ],
+        [
+          'Finanzas',
+          'Utilidad neta',
+          '',
+          String(summary.financial.netIncome),
+        ],
+        [
+          'Finanzas',
+          'Margen neto',
+          '',
+          `${summary.financial.margin}%`,
+        ],
       );
       for (const item of summary.financial.incomeByMonth) {
         rows.push(['Finanzas', 'Ingresos por mes', item.month, String(item.total)]);
+      }
+      for (const item of summary.financial.monthlySeries) {
+        rows.push(['Finanzas', 'Gastos por mes', item.month, String(item.expenses)]);
+        rows.push(['Finanzas', 'Utilidad neta por mes', item.month, String(item.netIncome)]);
+      }
+      for (const item of summary.financial.expensesByCategory) {
+        rows.push(['Finanzas', 'Gastos por categoria', item.category, String(item.total)]);
       }
     }
 
