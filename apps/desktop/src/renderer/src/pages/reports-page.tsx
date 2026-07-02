@@ -174,7 +174,7 @@ export function ReportsPage() {
     return () => window.clearTimeout(timer);
   }, [refresh]);
 
-  const exportCsv = async () => {
+  const exportExcel = async () => {
     setIsExporting(true);
     try {
       const query = new URLSearchParams({
@@ -182,11 +182,11 @@ export function ReportsPage() {
         dateTo,
         section,
       });
-      const blob = await requestBlob(`/reports/export.csv?${query.toString()}`);
+      const blob = await requestBlob(`/reports/export.xlsx?${query.toString()}`);
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `vetcare_reportes_${section}_${dateFrom}_${dateTo}.csv`;
+      link.download = `vetcare_reportes_${section}_${dateFrom}_${dateTo}.xlsx`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -196,7 +196,7 @@ export function ReportsPage() {
       setError(
         exportError instanceof Error
           ? exportError.message
-          : 'No fue posible exportar el reporte.',
+          : 'No fue posible exportar el Excel del reporte.',
       );
     } finally {
       setIsExporting(false);
@@ -299,7 +299,7 @@ export function ReportsPage() {
             Actualizar
           </Button>
           <Button
-            onClick={() => void exportCsv()}
+            onClick={() => void exportExcel()}
             disabled={isExporting || isLoading}
             className="self-end bg-teal-600 text-white shadow-lg shadow-teal-600/20 hover:bg-teal-700"
           >
@@ -308,7 +308,7 @@ export function ReportsPage() {
             ) : (
               <Download className="size-4" />
             )}
-            CSV
+            Excel
           </Button>
         </div>
       </Card>

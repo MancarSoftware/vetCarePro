@@ -37,4 +37,21 @@ export class ReportsController {
     );
     return this.reportsService.exportCsv(query);
   }
+
+  @Get('export.xlsx')
+  async exportXlsx(
+    @Query() query: ReportsQueryDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const { buffer, filename } = await this.reportsService.exportXlsx(query);
+    response.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    response.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${filename}"`,
+    );
+    return buffer;
+  }
 }

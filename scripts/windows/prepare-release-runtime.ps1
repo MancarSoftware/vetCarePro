@@ -133,6 +133,7 @@ $apiPackage = @{
     bcrypt = '^6.0.0'
     'class-transformer' = '^0.5.1'
     'class-validator' = '^0.14.3'
+    exceljs = '^4.4.0'
     helmet = '^8.1.0'
     pg = '^8.16.3'
     'reflect-metadata' = '^0.2.2'

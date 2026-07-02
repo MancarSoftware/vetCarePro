@@ -16,6 +16,7 @@ import {
   buildReportRange,
   startOfLocalDay,
 } from './reports-range';
+import { ReportsExcelService } from './reports-excel.service';
 
 const UPCOMING_DAYS = 30;
 
@@ -76,7 +77,10 @@ export interface ReportsSummary {
 
 @Injectable()
 export class ReportsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly reportsExcel: ReportsExcelService,
+  ) {}
 
   async getSummary(query: ReportsQueryDto): Promise<ReportsSummary> {
     const range = this.safeRange(query);
@@ -356,6 +360,18 @@ export class ReportsService {
     const summary = await this.getSummary(query);
     const section = query.section ?? 'all';
     return this.toCsv(summary, section);
+  }
+
+  async exportXlsx(query: ReportsQueryDto): Promise<{
+    buffer: Buffer;
+    filename: string;
+  }> {
+    const summary = await this.getSummary(query);
+    const section = query.section ?? 'all';
+    return {
+      buffer: await this.reportsExcel.buildWorkbook(summary, section),
+      filename: this.reportsExcel.filename(summary, section),
+    };
   }
 
   exportFilename(query: ReportsQueryDto) {
