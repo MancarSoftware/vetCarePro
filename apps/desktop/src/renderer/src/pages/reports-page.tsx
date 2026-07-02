@@ -139,7 +139,7 @@ const emptySummary: ReportsSummary = {
 export function ReportsPage() {
   const { request, requestBlob } = useAuth();
   const [dateFrom, setDateFrom] = useState(() =>
-    dateInputValue(new Date(new Date().getFullYear(), 0, 1)),
+    dateInputValue(new Date(new Date().getFullYear(), new Date().getMonth(), 1)),
   );
   const [dateTo, setDateTo] = useState(() => dateInputValue(new Date()));
   const [section, setSection] = useState<ReportSection>('all');
@@ -318,13 +318,27 @@ export function ReportsPage() {
         </div>
       </Card>
 
-      <section className="grid grid-cols-2 gap-4 xl:grid-cols-5">
+      <section className="grid grid-cols-2 gap-4 xl:grid-cols-7">
         <ReportMetric
           icon={CircleDollarSign}
           label="Ingresos cobrados"
           value={currency.format(data.financial.income)}
           detail={`${data.financial.paidDocuments} documentos pagados`}
           tone="teal"
+        />
+        <ReportMetric
+          icon={ClipboardList}
+          label="Gastos del periodo"
+          value={currency.format(data.financial.expenses)}
+          detail="Egresos registrados"
+          tone="rose"
+        />
+        <ReportMetric
+          icon={Activity}
+          label="Utilidad neta"
+          value={currency.format(data.financial.netIncome)}
+          detail={`Margen ${decimal.format(data.financial.margin)}%`}
+          tone={data.financial.netIncome >= 0 ? 'emerald' : 'rose'}
         />
         <ReportMetric
           icon={WalletCards}
@@ -694,7 +708,7 @@ function ReportMetric({
   label: string;
   value: string;
   detail: string;
-  tone: 'teal' | 'blue' | 'amber' | 'rose' | 'violet';
+  tone: 'teal' | 'blue' | 'amber' | 'rose' | 'violet' | 'emerald';
 }) {
   const tones = {
     teal: 'bg-teal-50 text-teal-700',
@@ -702,6 +716,7 @@ function ReportMetric({
     amber: 'bg-amber-50 text-amber-700',
     rose: 'bg-rose-50 text-rose-700',
     violet: 'bg-violet-50 text-violet-700',
+    emerald: 'bg-emerald-50 text-emerald-700',
   };
   return (
     <Card className="flex items-center gap-4 p-4">
