@@ -41,7 +41,7 @@ export class ReportsController {
   @Get('export.xlsx')
   async exportXlsx(
     @Query() query: ReportsQueryDto,
-    @Res({ passthrough: true }) response: Response,
+    @Res() response: Response,
   ) {
     const { buffer, filename } = await this.reportsService.exportXlsx(query);
     response.setHeader(
@@ -52,6 +52,7 @@ export class ReportsController {
       'Content-Disposition',
       `attachment; filename="${filename}"`,
     );
-    return buffer;
+    response.setHeader('Content-Length', buffer.length.toString());
+    response.send(buffer);
   }
 }
