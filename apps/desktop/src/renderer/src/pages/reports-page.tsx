@@ -318,7 +318,7 @@ export function ReportsPage() {
         </div>
       </Card>
 
-      <section className="grid grid-cols-2 gap-4 xl:grid-cols-7">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <ReportMetric
           icon={CircleDollarSign}
           label="Ingresos cobrados"
@@ -719,21 +719,25 @@ function ReportMetric({
     emerald: 'bg-emerald-50 text-emerald-700',
   };
   return (
-    <Card className="flex items-center gap-4 p-4">
+    <Card className="flex min-h-[96px] items-center gap-3 p-4">
       <div
         className={cn(
-          'grid size-12 shrink-0 place-items-center rounded-2xl',
+          'grid size-11 shrink-0 place-items-center rounded-2xl',
           tones[tone],
         )}
       >
         <Icon className="size-5" />
       </div>
-      <div className="min-w-0">
-        <p className="truncate text-xl font-bold tracking-[-0.03em] text-slate-900">
+      <div className="min-w-0 flex-1">
+        <p className="break-words text-xl font-black leading-tight tracking-[-0.04em] text-slate-900">
           {value}
         </p>
-        <p className="truncate text-xs font-semibold text-slate-500">{label}</p>
-        <p className="mt-1 truncate text-[11px] text-slate-400">{detail}</p>
+        <p className="mt-1 text-xs font-semibold leading-tight text-slate-500">
+          {label}
+        </p>
+        <p className="mt-1 text-[11px] leading-tight text-slate-400">
+          {detail}
+        </p>
       </div>
     </Card>
   );

@@ -313,7 +313,15 @@ export function Topbar({
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setNotificationsOpen(false);
     };
-    const closeOnScroll = () => setNotificationsOpen(false);
+    const closeOnScroll = (event: Event) => {
+      if (
+        notificationsRef.current &&
+        notificationsRef.current.contains(event.target as Node)
+      ) {
+        return;
+      }
+      setNotificationsOpen(false);
+    };
 
     document.addEventListener('pointerdown', closeOnOutsideClick);
     document.addEventListener('keydown', closeOnEscape);
@@ -439,8 +447,11 @@ export function Topbar({
           </button>
 
           {notificationsOpen ? (
-            <div className="absolute right-0 top-12 z-40 w-[380px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/10">
-              <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+            <div
+              className="absolute right-0 top-12 z-40 flex max-h-[70vh] w-[360px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/10"
+              onWheel={(event) => event.stopPropagation()}
+            >
+              <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-4 py-3">
                 <div>
                   <p className="text-sm font-bold text-slate-900">Alertas</p>
                   <p className="text-xs text-slate-500">
@@ -455,7 +466,7 @@ export function Topbar({
                   <X className="size-4" />
                 </button>
               </div>
-              <div className="max-h-[420px] overflow-y-auto p-2">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2 pr-3 [scrollbar-gutter:stable]">
                 {notifications.length ? (
                   notifications.map((notification) => (
                     <button
