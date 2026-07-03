@@ -257,16 +257,16 @@ export function PaymentFormModal({
       walkInCustomerName: enabled ? current.walkInCustomerName : '',
       walkInCustomerPhone: enabled ? current.walkInCustomerPhone : '',
       walkInCustomerDocument: enabled ? current.walkInCustomerDocument : '',
-      ownerId: enabled ? '' : current.ownerId,
-      petId: enabled ? '' : current.petId,
-      appointmentId: enabled ? '' : current.appointmentId,
+      ownerId: '',
+      petId: '',
+      appointmentId: '',
+      reference: '',
       dueAt: enabled ? '' : current.dueAt,
-      items: enabled
-        ? current.items.some((item) => item.type === 'PRODUCT')
-          ? current.items.filter((item) => item.type === 'PRODUCT')
-          : [newLine('PRODUCT')]
-        : current.items,
-      initialAmount: enabled ? '' : current.initialAmount,
+      notes: '',
+      items: [newLine(enabled ? 'PRODUCT' : 'SERVICE')],
+      initialAmount: '',
+      method: 'CASH',
+      paymentReference: '',
     }));
   };
 
@@ -469,6 +469,13 @@ export function PaymentFormModal({
                     ownerId: event.target.value,
                     petId: '',
                     appointmentId: '',
+                    reference: '',
+                    dueAt: '',
+                    notes: '',
+                    items: [newLine('SERVICE')],
+                    initialAmount: '',
+                    method: 'CASH',
+                    paymentReference: '',
                   }))
                 }
                 className={clinicalInputClass}
@@ -494,6 +501,13 @@ export function PaymentFormModal({
                     ...current,
                     petId: event.target.value,
                     appointmentId: '',
+                    reference: '',
+                    dueAt: '',
+                    notes: '',
+                    items: [newLine('SERVICE')],
+                    initialAmount: '',
+                    method: 'CASH',
+                    paymentReference: '',
                   }))
                 }
                 className={clinicalInputClass}
@@ -518,17 +532,17 @@ export function PaymentFormModal({
                     ...current,
                     appointmentId: event.target.value,
                     petId: appointment?.petId ?? current.petId,
+                    reference: '',
+                    dueAt: '',
+                    notes: '',
+                    initialAmount: '',
+                    method: 'CASH',
+                    paymentReference: '',
                     items: appointment
                       ? [
                           lineFromAppointment(appointment),
-                          ...current.items.filter(
-                            (item, index) =>
-                              index > 0 ||
-                              item.description.trim() ||
-                              item.productId,
-                          ),
                         ]
-                      : current.items,
+                      : [newLine('SERVICE')],
                   }));
                 }}
                 className={clinicalInputClass}
