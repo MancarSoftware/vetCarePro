@@ -7,6 +7,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
   MaxLength,
   ValidateNested,
 } from 'class-validator';
@@ -25,12 +26,14 @@ export class CreatePaymentDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(30)
+  @MaxLength(10)
+  @Matches(/^\d{1,10}$/)
   walkInCustomerPhone?: string;
 
   @IsOptional()
   @IsString()
-  @MaxLength(30)
+  @MaxLength(10)
+  @Matches(/^\d{1,10}$/)
   walkInCustomerDocument?: string;
 
   @IsOptional()

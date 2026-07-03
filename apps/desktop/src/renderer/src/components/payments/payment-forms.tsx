@@ -122,6 +122,10 @@ function sanitizeDiscountPercent(value: string) {
   return String(Math.min(100, Number(digits)));
 }
 
+function sanitizeNumericIdentifier(value: string) {
+  return value.replace(/\D/g, '').slice(0, 10);
+}
+
 function roundMoney(value: number) {
   return Math.round(value * 100) / 100;
 }
@@ -431,21 +435,33 @@ export function PaymentFormModal({
                 </ClinicalField>
                 <ClinicalField label="Telefono" optional>
                   <input
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={10}
                     value={form.walkInCustomerPhone}
                     onChange={(event) =>
-                      update('walkInCustomerPhone', event.target.value)
+                      update(
+                        'walkInCustomerPhone',
+                        sanitizeNumericIdentifier(event.target.value),
+                      )
                     }
-                    placeholder="Opcional"
+                    placeholder="10 digitos"
                     className={clinicalInputClass}
                   />
                 </ClinicalField>
                 <ClinicalField label="Cedula / documento" optional>
                   <input
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={10}
                     value={form.walkInCustomerDocument}
                     onChange={(event) =>
-                      update('walkInCustomerDocument', event.target.value)
+                      update(
+                        'walkInCustomerDocument',
+                        sanitizeNumericIdentifier(event.target.value),
+                      )
                     }
-                    placeholder="Opcional"
+                    placeholder="10 digitos"
                     className={clinicalInputClass}
                   />
                 </ClinicalField>
