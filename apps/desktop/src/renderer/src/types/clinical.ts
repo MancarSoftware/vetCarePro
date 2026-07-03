@@ -6,6 +6,53 @@ export interface PaginatedResponse<T> {
   totalPages: number;
 }
 
+export type ExpenseCategory =
+  | 'INVENTORY'
+  | 'SALARIES'
+  | 'RENT'
+  | 'UTILITIES'
+  | 'SERVICES'
+  | 'MAINTENANCE'
+  | 'TAXES'
+  | 'MARKETING'
+  | 'ADMINISTRATIVE'
+  | 'OTHER';
+
+export interface FinanceExpense {
+  id: string; 
+  category: ExpenseCategory;
+  description: string;
+  amount: number;
+  vendor: string | null;
+  reference: string | null;
+  occurredAt: string;
+  notes: string | null;
+  createdAt: string;
+  createdBy: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  };
+}
+
+export interface FinanceSummary {
+  generatedAt: string;
+  range: { from: string; to: string };
+  totals: {
+    income: number;
+    expenses: number;
+    netIncome: number;
+    margin: number;
+  };
+  expensesByCategory: Array<{ category: ExpenseCategory; total: number }>;
+  monthlySeries: Array<{
+    month: string;
+    income: number;
+    expenses: number;
+    netIncome: number;
+  }>;
+}
+
 export type PetSex = 'MALE' | 'FEMALE' | 'UNKNOWN';
 export type PetStatus = 'ACTIVE' | 'INACTIVE' | 'DECEASED';
 
@@ -92,6 +139,7 @@ export interface Appointment {
   status: AppointmentStatus;
   startsAt: string;
   endsAt: string;
+  estimatedPrice: number | null;
   reason: string | null;
   notes: string | null;
   createdAt: string;
@@ -514,6 +562,9 @@ export interface Payment {
   petId: string | null;
   appointmentId: string | null;
   createdById: string;
+  walkInCustomerName: string | null;
+  walkInCustomerPhone: string | null;
+  walkInCustomerDocument: string | null;
   invoiceNumber: string;
   reference: string | null;
   description: string;
@@ -592,7 +643,18 @@ export interface ReportsSummary {
     paidDocuments: number;
     pendingDocuments: number;
     averageTicket: number;
+    expenses: number;
+    netIncome: number;
+    margin: number;
     incomeByMonth: Array<{ month: string; total: number }>;
+    expensesByCategory: Array<{ category: ExpenseCategory; total: number }>;
+    monthlySeries: Array<{
+      month: string;
+      income: number;
+      expenses: number;
+      netIncome: number;
+      margin: number;
+    }>;
   };
   appointments: {
     total: number;

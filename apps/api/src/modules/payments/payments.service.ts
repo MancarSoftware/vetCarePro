@@ -9,6 +9,7 @@ import {
   PaymentItemType,
   PaymentMethod,
   PaymentStatus,
+  AppointmentStatus,
 } from '../../generated/prisma/enums';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePaymentTransactionDto } from './dto/create-payment-transaction.dto';
@@ -104,6 +105,11 @@ type PaymentDetail = Prisma.PaymentGetPayload<{
   include: typeof paymentDetailInclude;
 }>;
 
+const BILLABLE_APPOINTMENT_STATUSES: AppointmentStatus[] = [
+  AppointmentStatus.CONFIRMED,
+  AppointmentStatus.COMPLETED,
+];
+
 @Injectable()
 export class PaymentsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -133,6 +139,24 @@ export class PaymentsService {
               { invoiceNumber: { contains: search, mode: 'insensitive' } },
               { reference: { contains: search, mode: 'insensitive' } },
               { description: { contains: search, mode: 'insensitive' } },
+              {
+                walkInCustomerName: {
+                  contains: search,
+                  mode: 'insensitive',
+                },
+              },
+              {
+                walkInCustomerPhone: {
+                  contains: search,
+                  mode: 'insensitive',
+                },
+              },
+              {
+                walkInCustomerDocument: {
+                  contains: search,
+                  mode: 'insensitive',
+                },
+              },
               {
                 owner: {
                   OR: [
@@ -261,7 +285,36 @@ export class PaymentsService {
   }
 
   async create(actorId: string, dto: CreatePaymentDto) {
-    const owner = await this.ensureOwner(dto.ownerId);
+    const isWalkInSale = !dto.ownerId;
+    if (isWalkInSale) {
+      if (dto.petId || dto.appointmentId) {
+        throw new BadRequestException(
+          'Una venta mostrador no puede asociarse a mascota o cita',
+        );
+      }
+      if (dto.items.some((item) => item.type !== PaymentItemType.PRODUCT)) {
+        throw new BadRequestException(
+          'Las ventas mostrador solo pueden contener productos',
+        );
+      }
+      if (!this.optionalText(dto.walkInCustomerName)) {
+        throw new BadRequestException(
+          'Ingresa el nombre del cliente ocasional',
+        );
+      }
+    } else if (
+      dto.walkInCustomerName ||
+      dto.walkInCustomerPhone ||
+      dto.walkInCustomerDocument
+    ) {
+      throw new BadRequestException(
+        'Los datos de cliente ocasional solo aplican para venta mostrador',
+      );
+    }
+
+    const owner = dto.ownerId
+      ? await this.ensureOwner(dto.ownerId)
+      : await this.ensureWalkInOwner();
     const pet = dto.petId
       ? await this.ensurePet(dto.petId, owner.id)
       : null;
@@ -335,6 +388,11 @@ export class PaymentsService {
         'El pago inicial no puede superar el total del documento',
       );
     }
+    if (isWalkInSale && initialAmount < total) {
+      throw new BadRequestException(
+        'Las ventas mostrador deben registrarse pagadas en el momento',
+      );
+    }
     if (dto.initialPayment) {
       this.assertManualCardReference(
         dto.initialPayment.method,
@@ -357,6 +415,15 @@ export class PaymentsService {
               petId: pet?.id ?? null,
               appointmentId: dto.appointmentId ?? null,
               createdById: actorId,
+              walkInCustomerName: isWalkInSale
+                ? this.optionalText(dto.walkInCustomerName)
+                : null,
+              walkInCustomerPhone: isWalkInSale
+                ? this.optionalText(dto.walkInCustomerPhone)
+                : null,
+              walkInCustomerDocument: isWalkInSale
+                ? this.optionalText(dto.walkInCustomerDocument)
+                : null,
               invoiceNumber,
               reference: this.optionalText(dto.reference),
               description,
@@ -429,6 +496,9 @@ export class PaymentsService {
               changes: {
                 invoiceNumber,
                 ownerId: owner.id,
+                walkInCustomerName: isWalkInSale
+                  ? this.optionalText(dto.walkInCustomerName)
+                  : null,
                 petId: pet?.id ?? null,
                 total,
                 initialAmount,
@@ -735,6 +805,27 @@ export class PaymentsService {
       });
   }
 
+  private ensureWalkInOwner() {
+    return this.prisma.owner.upsert({
+      where: { nationalId: 'VETCARE-CONSUMIDOR-FINAL' },
+      update: {
+        firstName: 'Consumidor',
+        lastName: 'Final',
+        phone: '0000000000',
+        notes: 'Cliente interno automatico para ventas mostrador.',
+        deletedAt: null,
+      },
+      create: {
+        firstName: 'Consumidor',
+        lastName: 'Final',
+        nationalId: 'VETCARE-CONSUMIDOR-FINAL',
+        phone: '0000000000',
+        notes: 'Cliente interno automatico para ventas mostrador.',
+      },
+      select: { id: true },
+    });
+  }
+
   private ensurePet(petId: string, ownerId: string) {
     return this.prisma.pet
       .findFirst({
@@ -764,12 +855,17 @@ export class PaymentsService {
           deletedAt: null,
           ...(petId ? { petId } : {}),
         },
-        select: { id: true },
+        select: { id: true, status: true },
       })
       .then((appointment) => {
         if (!appointment) {
           throw new NotFoundException(
             'La cita no existe o no corresponde al cliente seleccionado',
+          );
+        }
+        if (!BILLABLE_APPOINTMENT_STATUSES.includes(appointment.status)) {
+          throw new BadRequestException(
+            'Solo se pueden cobrar citas confirmadas o atendidas',
           );
         }
         return appointment;

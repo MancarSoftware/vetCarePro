@@ -205,6 +205,7 @@ export class AppointmentsService {
           status,
           startsAt,
           endsAt,
+          estimatedPrice: dto.estimatedPrice ?? null,
           reason: this.optionalText(dto.reason),
           notes: this.optionalText(dto.notes),
         },
@@ -223,6 +224,7 @@ export class AppointmentsService {
             status: appointment.status,
             startsAt: appointment.startsAt.toISOString(),
             endsAt: appointment.endsAt.toISOString(),
+            estimatedPrice: appointment.estimatedPrice?.toNumber() ?? null,
           },
         },
       });
@@ -279,6 +281,9 @@ export class AppointmentsService {
       ...(dto.status !== undefined ? { status: dto.status } : {}),
       ...(dto.startsAt !== undefined ? { startsAt } : {}),
       ...(dto.endsAt !== undefined ? { endsAt } : {}),
+      ...(dto.estimatedPrice !== undefined
+        ? { estimatedPrice: dto.estimatedPrice }
+        : {}),
       ...(dto.reason !== undefined
         ? { reason: this.optionalText(dto.reason) }
         : {}),

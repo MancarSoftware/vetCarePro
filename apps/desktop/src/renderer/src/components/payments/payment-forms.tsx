@@ -15,14 +15,18 @@ import type {
 import { format } from 'date-fns';
 import {
   CircleDollarSign,
+  CheckCircle2,
   LoaderCircle,
   PackagePlus,
   Plus,
   ReceiptText,
   Save,
+  ShoppingBag,
   Trash2,
+  UserRound,
   Wrench,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useMemo, useState, type FormEvent } from 'react';
 
 export interface PaymentLineForm {
@@ -36,6 +40,10 @@ export interface PaymentLineForm {
 }
 
 export interface PaymentFormState {
+  walkInSale: boolean;
+  walkInCustomerName: string;
+  walkInCustomerPhone: string;
+  walkInCustomerDocument: string;
   ownerId: string;
   petId: string;
   appointmentId: string;
@@ -76,6 +84,24 @@ const paymentMethodOptions: Array<{
   { value: 'OTHER', label: methodLabels.OTHER },
 ];
 
+const billableAppointmentStatuses = ['CONFIRMED', 'COMPLETED'] as const;
+
+const appointmentStatusLabels: Record<string, string> = {
+  CONFIRMED: 'Confirmada',
+  COMPLETED: 'Atendida',
+};
+
+const appointmentTypeLabels: Record<Appointment['type'], string> = {
+  GENERAL_CONSULTATION: 'Consulta general',
+  VACCINATION: 'Vacunación',
+  FOLLOW_UP: 'Control',
+  SURGERY: 'Cirugía',
+  GROOMING: 'Baño y peluquería',
+  EMERGENCY: 'Emergencia',
+  DEWORMING: 'Desparasitación',
+  OTHER: 'Servicio veterinario',
+};
+
 function isManualCardMethod(method: PaymentMethod) {
   return (
     method === 'CARD' ||
@@ -96,8 +122,55 @@ function sanitizeDiscountPercent(value: string) {
   return String(Math.min(100, Number(digits)));
 }
 
+function sanitizeNumericIdentifier(value: string) {
+  return value.replace(/\D/g, '').slice(0, 10);
+}
+
 function roundMoney(value: number) {
   return Math.round(value * 100) / 100;
+}
+
+function PaymentModeButton({
+  active,
+  icon: Icon,
+  title,
+  description,
+  onClick,
+}: {
+  active: boolean;
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex items-start gap-3 rounded-xl border p-4 text-left transition ${
+        active
+          ? 'border-teal-300 bg-white shadow-sm shadow-teal-900/5 ring-2 ring-teal-100'
+          : 'border-transparent bg-transparent hover:bg-white/70'
+      }`}
+    >
+      <span
+        className={`grid size-11 shrink-0 place-items-center rounded-xl ${
+          active ? 'bg-teal-50 text-teal-700' : 'bg-white text-slate-500'
+        }`}
+      >
+        <Icon className="size-5" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-2 text-sm font-black text-slate-900">
+          {title}
+          {active && <CheckCircle2 className="size-4 text-teal-600" />}
+        </span>
+        <span className="mt-1 block text-xs leading-5 text-slate-500">
+          {description}
+        </span>
+      </span>
+    </button>
+  );
 }
 
 function newLine(type: PaymentItemType): PaymentLineForm {
@@ -112,9 +185,23 @@ function newLine(type: PaymentItemType): PaymentLineForm {
   };
 }
 
+function lineFromAppointment(appointment: Appointment): PaymentLineForm {
+  return {
+    ...newLine('SERVICE'),
+    description: appointmentTypeLabels[appointment.type],
+    quantity: '1',
+    unitPrice:
+      appointment.estimatedPrice !== null
+        ? String(Number(appointment.estimatedPrice))
+        : '',
+    discount: '0',
+  };
+}
+
 export function PaymentFormModal({
   owners,
   appointments,
+  initialAppointmentId,
   products,
   submitting,
   onClose,
@@ -122,27 +209,43 @@ export function PaymentFormModal({
 }: {
   owners: Owner[];
   appointments: Appointment[];
+  initialAppointmentId?: string;
   products: InventoryProduct[];
   submitting: boolean;
   onClose: () => void;
   onSubmit: (form: PaymentFormState) => Promise<void>;
 }) {
-  const [form, setForm] = useState<PaymentFormState>({
-    ownerId: '',
-    petId: '',
-    appointmentId: '',
+  const initialAppointment = initialAppointmentId
+    ? appointments.find((appointment) => appointment.id === initialAppointmentId)
+    : undefined;
+  const [form, setForm] = useState<PaymentFormState>(() => ({
+    walkInSale: false,
+    walkInCustomerName: '',
+    walkInCustomerPhone: '',
+    walkInCustomerDocument: '',
+    ownerId: initialAppointment?.ownerId ?? '',
+    petId: initialAppointment?.petId ?? '',
+    appointmentId: initialAppointment?.id ?? '',
     reference: '',
     dueAt: '',
     notes: '',
-    items: [newLine('SERVICE')],
+    items: initialAppointment
+      ? [lineFromAppointment(initialAppointment)]
+      : [newLine('SERVICE')],
     initialAmount: '',
     method: 'CASH',
     paymentReference: '',
-  });
+  }));
   const [error, setError] = useState<string | null>(null);
   const owner = owners.find((item) => item.id === form.ownerId);
   const ownerAppointments = appointments.filter(
-    (appointment) => appointment.ownerId === form.ownerId,
+    (appointment) =>
+      appointment.ownerId === form.ownerId &&
+      billableAppointmentStatuses.includes(
+        appointment.status as (typeof billableAppointmentStatuses)[number],
+      ) &&
+      appointment._count.payments === 0 &&
+      (!form.petId || appointment.petId === form.petId),
   );
   const totals = useMemo(() => calculateFormTotals(form.items), [form.items]);
 
@@ -150,6 +253,26 @@ export function PaymentFormModal({
     field: K,
     value: PaymentFormState[K],
   ) => setForm((current) => ({ ...current, [field]: value }));
+
+  const setWalkInSaleMode = (enabled: boolean) => {
+    setForm((current) => ({
+      ...current,
+      walkInSale: enabled,
+      walkInCustomerName: enabled ? current.walkInCustomerName : '',
+      walkInCustomerPhone: enabled ? current.walkInCustomerPhone : '',
+      walkInCustomerDocument: enabled ? current.walkInCustomerDocument : '',
+      ownerId: '',
+      petId: '',
+      appointmentId: '',
+      reference: '',
+      dueAt: enabled ? '' : current.dueAt,
+      notes: '',
+      items: [newLine(enabled ? 'PRODUCT' : 'SERVICE')],
+      initialAmount: '',
+      method: 'CASH',
+      paymentReference: '',
+    }));
+  };
 
   const updateLine = (
     key: string,
@@ -180,8 +303,26 @@ export function PaymentFormModal({
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
-    if (!form.ownerId) {
+    if (!form.walkInSale && !form.ownerId) {
       setError('Selecciona el cliente responsable.');
+      return;
+    }
+    if (form.walkInSale && !form.walkInCustomerName.trim()) {
+      setError('Ingresa el nombre del cliente ocasional.');
+      return;
+    }
+    if (form.walkInSale && form.items.some((item) => item.type !== 'PRODUCT')) {
+      setError('La venta mostrador solo puede contener productos.');
+      return;
+    }
+    if (
+      !form.walkInSale &&
+      form.appointmentId &&
+      !ownerAppointments.some(
+        (appointment) => appointment.id === form.appointmentId,
+      )
+    ) {
+      setError('Solo puedes cobrar citas confirmadas o atendidas.');
       return;
     }
     if (
@@ -210,7 +351,7 @@ export function PaymentFormModal({
       return;
     }
     if (
-      Number(form.initialAmount || 0) > 0 &&
+      (form.walkInSale ? totals.total : Number(form.initialAmount || 0)) > 0 &&
       isManualCardMethod(form.method) &&
       !form.paymentReference.trim()
     ) {
@@ -218,7 +359,11 @@ export function PaymentFormModal({
       return;
     }
     try {
-      await onSubmit(form);
+      await onSubmit(
+        form.walkInSale
+          ? { ...form, initialAmount: totals.total.toFixed(2) }
+          : form,
+      );
     } catch (submitError) {
       setError(
         submitError instanceof Error
@@ -243,22 +388,119 @@ export function PaymentFormModal({
             </p>
           )}
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="mb-5 grid grid-cols-2 gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-2">
+            <PaymentModeButton
+              active={!form.walkInSale}
+              icon={UserRound}
+              title="Cliente registrado"
+              description="Cobra a un dueno existente y permite asociar mascota o cita."
+              onClick={() => setWalkInSaleMode(false)}
+            />
+            <PaymentModeButton
+              active={form.walkInSale}
+              icon={ShoppingBag}
+              title="Cliente ocasional"
+              description="Venta rapida de productos sin crear ficha de cliente."
+              onClick={() => setWalkInSaleMode(true)}
+            />
+          </div>
+
+          {form.walkInSale && (
+            <div className="mb-4 rounded-2xl border border-teal-100 bg-teal-50/60 p-4">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="grid size-10 place-items-center rounded-xl bg-white text-teal-700 shadow-sm">
+                  <ShoppingBag className="size-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-black text-slate-900">
+                    Datos del comprador ocasional
+                  </p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    No se crea una ficha de cliente; estos datos quedan solo en
+                    el documento de cobro.
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <ClinicalField label="Nombre del comprador">
+                  <input
+                    required
+                    value={form.walkInCustomerName}
+                    onChange={(event) =>
+                      update('walkInCustomerName', event.target.value)
+                    }
+                    placeholder="Ej. Carlos Mendez"
+                    className={clinicalInputClass}
+                  />
+                </ClinicalField>
+                <ClinicalField label="Telefono" optional>
+                  <input
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={10}
+                    value={form.walkInCustomerPhone}
+                    onChange={(event) =>
+                      update(
+                        'walkInCustomerPhone',
+                        sanitizeNumericIdentifier(event.target.value),
+                      )
+                    }
+                    placeholder="10 digitos"
+                    className={clinicalInputClass}
+                  />
+                </ClinicalField>
+                <ClinicalField label="Cedula / documento" optional>
+                  <input
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={10}
+                    value={form.walkInCustomerDocument}
+                    onChange={(event) =>
+                      update(
+                        'walkInCustomerDocument',
+                        sanitizeNumericIdentifier(event.target.value),
+                      )
+                    }
+                    placeholder="10 digitos"
+                    className={clinicalInputClass}
+                  />
+                </ClinicalField>
+              </div>
+            </div>
+          )}
+
+          <div
+            className={
+              form.walkInSale ? 'hidden' : 'grid grid-cols-3 gap-4'
+            }
+          >
             <ClinicalField label="Cliente responsable">
               <select
-                required
+                required={!form.walkInSale}
                 value={form.ownerId}
+                disabled={form.walkInSale}
                 onChange={(event) =>
                   setForm((current) => ({
                     ...current,
                     ownerId: event.target.value,
                     petId: '',
                     appointmentId: '',
+                    reference: '',
+                    dueAt: '',
+                    notes: '',
+                    items: [newLine('SERVICE')],
+                    initialAmount: '',
+                    method: 'CASH',
+                    paymentReference: '',
                   }))
                 }
                 className={clinicalInputClass}
               >
-                <option value="">Seleccionar cliente</option>
+                <option value="">
+                  {form.walkInSale
+                    ? 'Consumidor final automatico'
+                    : 'Seleccionar cliente'}
+                </option>
                 {owners.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.firstName} {item.lastName} · {item.phone}
@@ -269,8 +511,21 @@ export function PaymentFormModal({
             <ClinicalField label="Mascota" optional>
               <select
                 value={form.petId}
-                disabled={!owner}
-                onChange={(event) => update('petId', event.target.value)}
+                disabled={!owner || form.walkInSale}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    petId: event.target.value,
+                    appointmentId: '',
+                    reference: '',
+                    dueAt: '',
+                    notes: '',
+                    items: [newLine('SERVICE')],
+                    initialAmount: '',
+                    method: 'CASH',
+                    paymentReference: '',
+                  }))
+                }
                 className={clinicalInputClass}
               >
                 <option value="">Sin paciente asociado</option>
@@ -284,10 +539,28 @@ export function PaymentFormModal({
             <ClinicalField label="Cita relacionada" optional>
               <select
                 value={form.appointmentId}
-                disabled={!form.ownerId}
-                onChange={(event) =>
-                  update('appointmentId', event.target.value)
-                }
+                disabled={!form.ownerId || form.walkInSale}
+                onChange={(event) => {
+                  const appointment = appointments.find(
+                    (item) => item.id === event.target.value,
+                  );
+                  setForm((current) => ({
+                    ...current,
+                    appointmentId: event.target.value,
+                    petId: appointment?.petId ?? current.petId,
+                    reference: '',
+                    dueAt: '',
+                    notes: '',
+                    initialAmount: '',
+                    method: 'CASH',
+                    paymentReference: '',
+                    items: appointment
+                      ? [
+                          lineFromAppointment(appointment),
+                        ]
+                      : [newLine('SERVICE')],
+                  }));
+                }}
                 className={clinicalInputClass}
               >
                 <option value="">Sin cita asociada</option>
@@ -295,9 +568,20 @@ export function PaymentFormModal({
                   <option key={appointment.id} value={appointment.id}>
                     {appointment.pet.name} ·{' '}
                     {format(new Date(appointment.startsAt), 'dd/MM/yyyy HH:mm')}
+                    {' · '}
+                    {appointmentStatusLabels[appointment.status] ??
+                      appointment.status}
+                    {appointment.estimatedPrice !== null
+                      ? ` · $${Number(appointment.estimatedPrice).toFixed(2)}`
+                      : ''}
                   </option>
                 ))}
               </select>
+              {form.ownerId && ownerAppointments.length === 0 && !form.walkInSale && (
+                <p className="mt-2 text-xs text-slate-400">
+                  Solo aparecen citas confirmadas o atendidas.
+                </p>
+              )}
             </ClinicalField>
           </div>
 
@@ -308,19 +592,23 @@ export function PaymentFormModal({
                   Conceptos del documento
                 </p>
                 <p className="mt-0.5 text-xs text-slate-400">
-                  Servicios, productos y otros cargos.
+                  {form.walkInSale
+                    ? 'Productos vendidos en mostrador.'
+                    : 'Servicios, productos y otros cargos.'}
                 </p>
               </div>
               <div className="flex gap-2">
-                <Button
-                  onClick={() =>
-                    update('items', [...form.items, newLine('SERVICE')])
-                  }
-                  className="border border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
-                >
-                  <Wrench className="size-4" />
-                  Servicio
-                </Button>
+                {!form.walkInSale && (
+                  <Button
+                    onClick={() =>
+                      update('items', [...form.items, newLine('SERVICE')])
+                    }
+                    className="border border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
+                  >
+                    <Wrench className="size-4" />
+                    Servicio
+                  </Button>
+                )}
                 <Button
                   onClick={() =>
                     update('items', [...form.items, newLine('PRODUCT')])
@@ -348,6 +636,7 @@ export function PaymentFormModal({
                     <ClinicalField label="Tipo">
                       <select
                         value={item.type}
+                        disabled={form.walkInSale}
                         onChange={(event) => {
                           const type = event.target.value as PaymentItemType;
                           setForm((current) => ({
@@ -499,14 +788,31 @@ export function PaymentFormModal({
 
           <div className="mt-5 grid grid-cols-[1fr_380px] gap-5">
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <ClinicalField label="Referencia externa" optional>
+              <div
+                className={
+                  form.walkInSale
+                    ? 'grid grid-cols-1 gap-4 [&>label:nth-child(2)]:hidden'
+                    : 'grid grid-cols-2 gap-4'
+                }
+              >
+                <ClinicalField
+                  label={
+                    form.walkInSale
+                      ? 'Referencia de venta'
+                      : 'Referencia externa'
+                  }
+                  optional
+                >
                   <input
                     value={form.reference}
                     onChange={(event) =>
                       update('reference', event.target.value)
                     }
-                    placeholder="Orden, convenio..."
+                    placeholder={
+                      form.walkInSale
+                        ? 'Ticket, nota, convenio...'
+                        : 'Orden, convenio...'
+                    }
                     className={clinicalInputClass}
                   />
                 </ClinicalField>
@@ -545,19 +851,31 @@ export function PaymentFormModal({
                 </div>
               </div>
               <p className="mt-4 text-xs font-bold uppercase tracking-wider text-teal-300">
-                Pago inicial opcional
+                {form.walkInSale
+                  ? 'Pago inmediato de venta mostrador'
+                  : 'Pago inicial opcional'}
               </p>
+              {form.walkInSale && (
+                <p className="mt-2 text-xs leading-5 text-slate-400">
+                  Se registra como pagado por el total del documento.
+                </p>
+              )}
               <div className="mt-3 grid grid-cols-2 gap-3">
                 <input
                   type="number"
                   min="0"
                   max={totals.total}
                   step="0.01"
-                  value={form.initialAmount}
+                  disabled={form.walkInSale}
+                  value={
+                    form.walkInSale && totals.total > 0
+                      ? totals.total.toFixed(2)
+                      : form.initialAmount
+                  }
                   onChange={(event) =>
                     update('initialAmount', event.target.value)
                   }
-                  placeholder="Monto"
+                  placeholder={form.walkInSale ? 'Monto total' : 'Monto'}
                   className="h-10 rounded-xl border border-white/10 bg-white/10 px-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-teal-400"
                 />
                 <select

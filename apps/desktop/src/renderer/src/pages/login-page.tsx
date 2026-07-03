@@ -1,5 +1,6 @@
 import { AuthShell } from '@/components/auth/auth-shell';
 import { PasswordInput } from '@/components/auth/password-input';
+import { RuntimeConnectionPanel } from '@/components/runtime/runtime-connection-panel';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/auth-context';
 import { ApiError } from '@/lib/api';
@@ -36,6 +37,7 @@ export function LoginPage() {
       title="Bienvenido de nuevo"
       description="Ingresa con las credenciales asignadas por el administrador de la clínica."
     >
+      <RuntimeConnectionPanel />
       <form onSubmit={handleSubmit} className="space-y-5">
         <label className="block">
           <span className="mb-2 block text-sm font-semibold text-slate-700">

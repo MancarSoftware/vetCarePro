@@ -14,10 +14,12 @@ import {
   Syringe,
   UserRound,
   UsersRound,
+  WalletCards,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { AuthUser } from '@/types/auth';
 import { BrandLogo } from '@/components/brand/brand-logo';
+import { APP_VERSION } from '@/lib/app-version';
 
 export type AppPage =
   | 'dashboard'
@@ -29,6 +31,7 @@ export type AppPage =
   | 'preventive'
   | 'treatments'
   | 'payments'
+  | 'finance'
   | 'inventory'
   | 'reports'
   | 'backups'
@@ -96,6 +99,12 @@ const navigation: NavigationItem[] = [
     label: 'Pagos',
     icon: CreditCard,
     permission: 'payments.read',
+  },
+  {
+    id: 'finance',
+    label: 'Finanzas',
+    icon: WalletCards,
+    permission: 'finance.read',
   },
   {
     id: 'inventory',
@@ -191,7 +200,7 @@ export function Sidebar({
         </div>
 
         <div className="flex items-center justify-between px-3 pt-4 text-[11px] text-slate-400">
-          <span>Versión 1.0.0</span>
+          <span>Versión {APP_VERSION}</span>
           <span className="flex items-center gap-1.5">
             <span className="size-2 rounded-full bg-emerald-500" />
             Local

@@ -1,12 +1,16 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { LanDeviceGuard } from './common/guards/lan-device.guard';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { BackupsModule } from './modules/backups/backups.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { FinanceModule } from './modules/finance/finance.module';
 import { GlobalSearchModule } from './modules/global-search/global-search.module';
 import { HealthModule } from './modules/health/health.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
+import { LanLicenseModule } from './modules/lan-license/lan-license.module';
 import { MedicalRecordsModule } from './modules/medical-records/medical-records.module';
 import { MediaModule } from './modules/media/media.module';
 import { OwnersModule } from './modules/owners/owners.module';
@@ -32,6 +36,7 @@ import { SecurityModule } from './security/security.module';
     HealthModule,
     BackupsModule,
     InventoryModule,
+    LanLicenseModule,
     AuthModule,
     UsersModule,
     RolesModule,
@@ -43,10 +48,17 @@ import { SecurityModule } from './security/security.module';
     MediaModule,
     PreventiveCareModule,
     TreatmentsModule,
+    FinanceModule,
     ReportsModule,
     SettingsModule,
     DashboardModule,
     GlobalSearchModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: LanDeviceGuard,
+    },
   ],
 })
 export class AppModule {}

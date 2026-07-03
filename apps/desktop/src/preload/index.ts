@@ -6,6 +6,15 @@ contextBridge.exposeInMainWorld('vetcare', {
     electron: process.versions.electron,
     chrome: process.versions.chrome,
   },
+  runtime: {
+    getConfig: () => ipcRenderer.invoke('runtime:get-config'),
+    getDeviceIdentity: () => ipcRenderer.invoke('runtime:get-device-identity'),
+    getLanAddresses: () => ipcRenderer.invoke('runtime:get-lan-addresses'),
+    saveConfig: (input: unknown) =>
+      ipcRenderer.invoke('runtime:save-config', input),
+    testConnection: (input?: unknown) =>
+      ipcRenderer.invoke('runtime:test-connection', input),
+  },
   auth: {
     getRefreshToken: (): Promise<string | null> =>
       ipcRenderer.invoke('auth:get-refresh-token'),

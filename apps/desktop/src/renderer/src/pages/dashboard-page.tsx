@@ -15,6 +15,7 @@ import { es } from 'date-fns/locale';
 import { motion } from 'framer-motion';
 import {
   AlertTriangle,
+  ArrowDownRight,
   ArrowUpRight,
   CalendarDays,
   CircleDollarSign,
@@ -24,6 +25,7 @@ import {
   PawPrint,
   RefreshCw,
   Syringe,
+  TrendingUp,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -411,6 +413,20 @@ function getMetricCards(metrics: DashboardMetrics): MetricCardProps[] {
       icon: CircleDollarSign,
       tone: 'green',
     },
+    {
+      title: 'Gastos del mes',
+      value: currency.format(metrics.monthlyExpenses),
+      detail: 'Salidas registradas',
+      icon: ArrowDownRight,
+      tone: 'orange',
+    },
+    {
+      title: 'Utilidad neta',
+      value: currency.format(metrics.monthlyNetIncome),
+      detail: 'Ingresos menos gastos',
+      icon: TrendingUp,
+      tone: 'teal',
+    },
   ];
 }
 
@@ -420,12 +436,14 @@ export function DashboardPage({
   onOpenTreatments,
   onOpenInventory,
   onOpenPayments,
+  onOpenFinance,
 }: {
   onOpenAppointments?: () => void;
   onOpenPreventive?: () => void;
   onOpenTreatments?: () => void;
   onOpenInventory?: () => void;
   onOpenPayments?: () => void;
+  onOpenFinance?: () => void;
 }) {
   const { user } = useAuth();
   const { data, error, isLoading, refresh } = useDashboard();
@@ -483,11 +501,23 @@ export function DashboardPage({
         </div>
       )}
 
-      <section className="grid grid-cols-2 gap-4 2xl:grid-cols-4">
+      <section className="grid grid-cols-2 gap-4 2xl:grid-cols-3 min-[1800px]:grid-cols-6">
         {getMetricCards(data.metrics).map((metric) => (
           <MetricCard key={metric.title} {...metric} />
         ))}
       </section>
+
+      {onOpenFinance && user?.permissions.includes('finance.read') && (
+        <div className="mt-3 flex justify-end">
+          <button
+            type="button"
+            onClick={onOpenFinance}
+            className="text-xs font-bold text-teal-600 hover:text-teal-700"
+          >
+            Ver analisis financiero
+          </button>
+        </div>
+      )}
 
       <section className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[1.15fr_1.15fr_0.82fr]">
         <Card className="min-h-[310px] overflow-hidden">

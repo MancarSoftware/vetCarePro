@@ -125,6 +125,13 @@ export function PetsPage({
   const [deletingPet, setDeletingPet] = useState<Pet | null>(null);
   const [form, setForm] = useState<PetForm>(emptyForm);
   const canManage = user?.permissions.includes('pets.manage') ?? false;
+  const canReadHistory = user?.permissions.includes('medical.read') ?? false;
+  const canReadAppointments =
+    user?.permissions.includes('appointments.read') ?? false;
+  const canReadPreventive =
+    user?.permissions.includes('vaccines.read') ?? false;
+  const canReadTreatments =
+    user?.permissions.includes('treatments.read') ?? false;
 
   const loadPets = useCallback(
     async (term: string, species: string) => {
@@ -378,6 +385,10 @@ export function PetsPage({
                 key={pet.id}
                 pet={pet}
                 canManage={canManage}
+                canReadHistory={canReadHistory}
+                canReadAppointments={canReadAppointments}
+                canReadPreventive={canReadPreventive}
+                canReadTreatments={canReadTreatments}
                 onEdit={() => openEdit(pet)}
                 onDelete={() => setDeletingPet(pet)}
                 onOpenHistory={() => onOpenHistory?.(pet.id)}
@@ -445,6 +456,10 @@ function EmptyPets({
 function PetCard({
   pet,
   canManage,
+  canReadHistory,
+  canReadAppointments,
+  canReadPreventive,
+  canReadTreatments,
   onEdit,
   onDelete,
   onOpenHistory,
@@ -455,6 +470,10 @@ function PetCard({
 }: {
   pet: Pet;
   canManage: boolean;
+  canReadHistory: boolean;
+  canReadAppointments: boolean;
+  canReadPreventive: boolean;
+  canReadTreatments: boolean;
   onEdit: () => void;
   onDelete: () => void;
   onOpenHistory: () => void;
@@ -470,9 +489,7 @@ function PetCard({
   return (
     <article className="group rounded-2xl border border-slate-200 bg-white p-4 transition hover:-translate-y-0.5 hover:border-teal-200 hover:shadow-lg hover:shadow-slate-200/50">
       <div className="flex items-start justify-between">
-        <div className="grid size-14 place-items-center rounded-2xl bg-gradient-to-br from-teal-50 to-cyan-100 text-teal-700">
-          <PetIcon className="size-7" />
-        </div>
+        <PetAvatar photoPath={pet.photoPath} fallbackIcon={PetIcon} />
         <div className="flex items-center gap-1">
           <Badge className={status.className}>{status.label}</Badge>
           {canManage && (
@@ -520,6 +537,7 @@ function PetCard({
         </div>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2">
+        {canReadHistory && (
         <button
           type="button"
           onClick={onOpenHistory}
@@ -528,6 +546,8 @@ function PetCard({
           <BookOpen className="size-4" />
           Historial
         </button>
+        )}
+        {canReadAppointments && (
         <button
           type="button"
           onClick={onOpenAppointments}
@@ -536,6 +556,8 @@ function PetCard({
           <CalendarDays className="size-4" />
           Citas
         </button>
+        )}
+        {canReadHistory && (
         <button
           type="button"
           onClick={onOpenMedia}
@@ -544,6 +566,8 @@ function PetCard({
           <Images className="size-4" />
           Archivos
         </button>
+        )}
+        {canReadPreventive && (
         <button
           type="button"
           onClick={onOpenPreventive}
@@ -552,6 +576,8 @@ function PetCard({
           <ShieldPlus className="size-4" />
           Prevención
         </button>
+        )}
+        {canReadTreatments && (
         <button
           type="button"
           onClick={onOpenTreatments}
@@ -560,8 +586,62 @@ function PetCard({
           <Activity className="size-4" />
           Tratamientos y evolución
         </button>
+        )}
       </div>
     </article>
+  );
+}
+
+function PetAvatar({
+  photoPath,
+  fallbackIcon: FallbackIcon,
+}: {
+  photoPath: string | null;
+  fallbackIcon: typeof Dog;
+}) {
+  const { requestBlob } = useAuth();
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    let objectUrl: string | null = null;
+
+    setImageUrl(null);
+    if (!photoPath?.startsWith('/')) {
+      return () => undefined;
+    }
+
+    void requestBlob(photoPath)
+      .then((blob) => {
+        if (!mounted) return;
+        objectUrl = URL.createObjectURL(blob);
+        setImageUrl(objectUrl);
+      })
+      .catch(() => {
+        if (mounted) setImageUrl(null);
+      });
+
+    return () => {
+      mounted = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [photoPath, requestBlob]);
+
+  return (
+    <div className="size-14 overflow-hidden rounded-2xl bg-gradient-to-br from-teal-50 to-cyan-100 text-teal-700 shadow-inner shadow-white/60">
+      {imageUrl ? (
+        <img
+          src={imageUrl}
+          alt="Foto de perfil de la mascota"
+          className="size-full object-cover object-center"
+          draggable={false}
+        />
+      ) : (
+        <div className="grid size-full place-items-center">
+          <FallbackIcon className="size-7" />
+        </div>
+      )}
+    </div>
   );
 }
 

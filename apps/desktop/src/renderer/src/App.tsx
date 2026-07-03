@@ -4,9 +4,11 @@ import {
 } from '@/components/layout/sidebar';
 import { Topbar } from '@/components/layout/topbar';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
+import { RuntimeConfigProvider } from '@/contexts/runtime-config-context';
 import { AppointmentsPage } from '@/pages/appointments-page';
 import { BackupsPage } from '@/pages/backups-page';
 import { DashboardPage } from '@/pages/dashboard-page';
+import { FinancePage } from '@/pages/finance-page';
 import { LoadingPage } from '@/pages/loading-page';
 import { LoginPage } from '@/pages/login-page';
 import { InventoryPage } from '@/pages/inventory-page';
@@ -24,11 +26,30 @@ import { UsersPage } from '@/pages/users-page';
 import type { NavigationTarget } from '@/types/global-search';
 import { useState } from 'react';
 
+const pagePermissions: Partial<Record<AppPage, string>> = {
+  dashboard: 'dashboard.read',
+  pets: 'pets.read',
+  owners: 'owners.read',
+  appointments: 'appointments.read',
+  history: 'medical.read',
+  media: 'medical.read',
+  preventive: 'vaccines.read',
+  treatments: 'treatments.read',
+  payments: 'payments.read',
+  finance: 'finance.read',
+  inventory: 'inventory.read',
+  reports: 'reports.read',
+  backups: 'backups.manage',
+  users: 'users.read',
+  settings: 'settings.manage',
+};
+
 function AuthenticatedApp() {
   const { user, logout } = useAuth();
   const [currentPage, setCurrentPage] = useState<AppPage>('dashboard');
   const [historyPetId, setHistoryPetId] = useState<string>();
   const [appointmentPetId, setAppointmentPetId] = useState<string>();
+  const [paymentAppointmentId, setPaymentAppointmentId] = useState<string>();
   const [preventivePetId, setPreventivePetId] = useState<string>();
   const [treatmentTarget, setTreatmentTarget] = useState<{
     petId?: string;
@@ -44,9 +65,19 @@ function AuthenticatedApp() {
     return null;
   }
 
+  const canAccessPage = (page: AppPage) => {
+    const permission = pagePermissions[page];
+    return !permission || user.permissions.includes(permission);
+  };
+
+  const goToPage = (page: AppPage) => {
+    setCurrentPage(canAccessPage(page) ? page : 'dashboard');
+  };
+
   const navigateToTarget = (target: NavigationTarget) => {
     setHistoryPetId(undefined);
     setAppointmentPetId(undefined);
+    setPaymentAppointmentId(undefined);
     setPreventivePetId(undefined);
     setTreatmentTarget({});
     setMediaTarget({});
@@ -74,32 +105,35 @@ function AuthenticatedApp() {
       });
     }
 
-    setCurrentPage(target.page);
+    goToPage(target.page);
   };
 
   const renderPage = () => {
+    if (!canAccessPage(currentPage)) {
+      return <DashboardPage />;
+    }
     if (currentPage === 'pets') {
       return (
         <PetsPage
           onOpenHistory={(petId) => {
             setHistoryPetId(petId);
-            setCurrentPage('history');
+            goToPage('history');
           }}
           onOpenMedia={(petId) => {
             setMediaTarget({ petId });
-            setCurrentPage('media');
+            goToPage('media');
           }}
           onOpenPreventive={(petId) => {
             setPreventivePetId(petId);
-            setCurrentPage('preventive');
+            goToPage('preventive');
           }}
           onOpenAppointments={(petId) => {
             setAppointmentPetId(petId);
-            setCurrentPage('appointments');
+            goToPage('appointments');
           }}
           onOpenTreatments={(petId) => {
             setTreatmentTarget({ petId });
-            setCurrentPage('treatments');
+            goToPage('treatments');
           }}
         />
       );
@@ -111,7 +145,11 @@ function AuthenticatedApp() {
           initialPetId={appointmentPetId}
           onOpenHistory={(petId) => {
             setHistoryPetId(petId);
-            setCurrentPage('history');
+            goToPage('history');
+          }}
+          onCollectPayment={(appointmentId) => {
+            setPaymentAppointmentId(appointmentId);
+            goToPage('payments');
           }}
         />
       );
@@ -122,15 +160,15 @@ function AuthenticatedApp() {
           initialPetId={historyPetId}
           onOpenMedia={(petId, medicalRecordId) => {
             setMediaTarget({ petId, medicalRecordId });
-            setCurrentPage('media');
+            goToPage('media');
           }}
           onOpenPreventive={(petId) => {
             setPreventivePetId(petId);
-            setCurrentPage('preventive');
+            goToPage('preventive');
           }}
           onOpenTreatments={(petId, medicalRecordId) => {
             setTreatmentTarget({ petId, medicalRecordId });
-            setCurrentPage('treatments');
+            goToPage('treatments');
           }}
         />
       );
@@ -154,17 +192,25 @@ function AuthenticatedApp() {
           initialMedicalRecordId={treatmentTarget.medicalRecordId}
           onOpenHistory={(petId) => {
             setHistoryPetId(petId);
-            setCurrentPage('history');
+            goToPage('history');
           }}
           onOpenMedia={(petId, treatmentId) => {
             setMediaTarget({ petId, treatmentId });
-            setCurrentPage('media');
+            goToPage('media');
           }}
         />
       );
     }
     if (currentPage === 'inventory') return <InventoryPage />;
-    if (currentPage === 'payments') return <PaymentsPage />;
+    if (currentPage === 'payments') {
+      return (
+        <PaymentsPage
+          initialAppointmentId={paymentAppointmentId}
+          onInitialAppointmentHandled={() => setPaymentAppointmentId(undefined)}
+        />
+      );
+    }
+    if (currentPage === 'finance') return <FinancePage />;
     if (currentPage === 'reports') return <ReportsPage />;
     if (currentPage === 'backups') return <BackupsPage />;
     if (currentPage === 'users') return <UsersPage />;
@@ -173,18 +219,19 @@ function AuthenticatedApp() {
       <DashboardPage
         onOpenAppointments={() => {
           setAppointmentPetId(undefined);
-          setCurrentPage('appointments');
+          goToPage('appointments');
         }}
         onOpenPreventive={() => {
           setPreventivePetId(undefined);
-          setCurrentPage('preventive');
+          goToPage('preventive');
         }}
         onOpenTreatments={() => {
           setTreatmentTarget({});
-          setCurrentPage('treatments');
+          goToPage('treatments');
         }}
-        onOpenInventory={() => setCurrentPage('inventory')}
-        onOpenPayments={() => setCurrentPage('payments')}
+        onOpenInventory={() => goToPage('inventory')}
+        onOpenPayments={() => goToPage('payments')}
+        onOpenFinance={() => goToPage('finance')}
       />
     );
   };
@@ -227,8 +274,10 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <RuntimeConfigProvider>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </RuntimeConfigProvider>
   );
 }

@@ -94,7 +94,12 @@ const emptySummary: ReportsSummary = {
     paidDocuments: 0,
     pendingDocuments: 0,
     averageTicket: 0,
+    expenses: 0,
+    netIncome: 0,
+    margin: 0,
     incomeByMonth: [],
+    expensesByCategory: [],
+    monthlySeries: [],
   },
   appointments: {
     total: 0,
@@ -174,7 +179,7 @@ export function ReportsPage() {
     return () => window.clearTimeout(timer);
   }, [refresh]);
 
-  const exportCsv = async () => {
+  const exportExcel = async () => {
     setIsExporting(true);
     try {
       const query = new URLSearchParams({
@@ -182,11 +187,11 @@ export function ReportsPage() {
         dateTo,
         section,
       });
-      const blob = await requestBlob(`/reports/export.csv?${query.toString()}`);
+      const blob = await requestBlob(`/reports/export.xlsx?${query.toString()}`);
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `vetcare_reportes_${section}_${dateFrom}_${dateTo}.csv`;
+      link.download = `vetcare_reportes_${section}_${dateFrom}_${dateTo}.xlsx`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -196,7 +201,7 @@ export function ReportsPage() {
       setError(
         exportError instanceof Error
           ? exportError.message
-          : 'No fue posible exportar el reporte.',
+          : 'No fue posible exportar el Excel del reporte.',
       );
     } finally {
       setIsExporting(false);
@@ -299,7 +304,7 @@ export function ReportsPage() {
             Actualizar
           </Button>
           <Button
-            onClick={() => void exportCsv()}
+            onClick={() => void exportExcel()}
             disabled={isExporting || isLoading}
             className="self-end bg-teal-600 text-white shadow-lg shadow-teal-600/20 hover:bg-teal-700"
           >
@@ -308,18 +313,32 @@ export function ReportsPage() {
             ) : (
               <Download className="size-4" />
             )}
-            CSV
+            Excel
           </Button>
         </div>
       </Card>
 
-      <section className="grid grid-cols-2 gap-4 xl:grid-cols-5">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <ReportMetric
           icon={CircleDollarSign}
           label="Ingresos cobrados"
           value={currency.format(data.financial.income)}
           detail={`${data.financial.paidDocuments} documentos pagados`}
           tone="teal"
+        />
+        <ReportMetric
+          icon={ClipboardList}
+          label="Gastos del periodo"
+          value={currency.format(data.financial.expenses)}
+          detail="Egresos registrados"
+          tone="rose"
+        />
+        <ReportMetric
+          icon={Activity}
+          label="Utilidad neta"
+          value={currency.format(data.financial.netIncome)}
+          detail={`Margen ${decimal.format(data.financial.margin)}%`}
+          tone={data.financial.netIncome >= 0 ? 'emerald' : 'rose'}
         />
         <ReportMetric
           icon={WalletCards}
@@ -359,8 +378,8 @@ export function ReportsPage() {
             <Card className="overflow-hidden">
               <PanelHeader
                 icon={BarChart3}
-                title="Ingresos por mes"
-                detail={`Ticket promedio ${currency.format(data.financial.averageTicket)}`}
+                title="Ingresos, gastos y utilidad neta"
+                detail={`Neto ${currency.format(data.financial.netIncome)} · Margen ${decimal.format(data.financial.margin)}%`}
               />
               <div className="h-[310px] px-4 pb-4 pt-6">
                 <ResponsiveContainer
@@ -370,7 +389,7 @@ export function ReportsPage() {
                   minHeight={240}
                   initialDimension={{ width: 820, height: 280 }}
                 >
-                  <BarChart data={data.financial.incomeByMonth}>
+                  <BarChart data={data.financial.monthlySeries}>
                     <CartesianGrid
                       strokeDasharray="3 3"
                       vertical={false}
@@ -390,9 +409,13 @@ export function ReportsPage() {
                     />
                     <Tooltip
                       cursor={{ fill: '#f8fafc' }}
-                      formatter={(value) => [
+                      formatter={(value, name) => [
                         currency.format(Number(value ?? 0)),
-                        'Ingresos',
+                        name === 'income'
+                          ? 'Ingresos'
+                          : name === 'expenses'
+                            ? 'Gastos'
+                            : 'Utilidad neta',
                       ]}
                       contentStyle={{
                         borderRadius: 14,
@@ -402,10 +425,22 @@ export function ReportsPage() {
                       }}
                     />
                     <Bar
-                      dataKey="total"
+                      dataKey="income"
                       fill="#0f9b9a"
                       radius={[8, 8, 0, 0]}
-                      maxBarSize={42}
+                      maxBarSize={34}
+                    />
+                    <Bar
+                      dataKey="expenses"
+                      fill="#f43f5e"
+                      radius={[8, 8, 0, 0]}
+                      maxBarSize={34}
+                    />
+                    <Bar
+                      dataKey="netIncome"
+                      fill="#22c55e"
+                      radius={[8, 8, 0, 0]}
+                      maxBarSize={34}
                     />
                   </BarChart>
                 </ResponsiveContainer>
@@ -673,7 +708,7 @@ function ReportMetric({
   label: string;
   value: string;
   detail: string;
-  tone: 'teal' | 'blue' | 'amber' | 'rose' | 'violet';
+  tone: 'teal' | 'blue' | 'amber' | 'rose' | 'violet' | 'emerald';
 }) {
   const tones = {
     teal: 'bg-teal-50 text-teal-700',
@@ -681,23 +716,28 @@ function ReportMetric({
     amber: 'bg-amber-50 text-amber-700',
     rose: 'bg-rose-50 text-rose-700',
     violet: 'bg-violet-50 text-violet-700',
+    emerald: 'bg-emerald-50 text-emerald-700',
   };
   return (
-    <Card className="flex items-center gap-4 p-4">
+    <Card className="flex min-h-[96px] items-center gap-3 p-4">
       <div
         className={cn(
-          'grid size-12 shrink-0 place-items-center rounded-2xl',
+          'grid size-11 shrink-0 place-items-center rounded-2xl',
           tones[tone],
         )}
       >
         <Icon className="size-5" />
       </div>
-      <div className="min-w-0">
-        <p className="truncate text-xl font-bold tracking-[-0.03em] text-slate-900">
+      <div className="min-w-0 flex-1">
+        <p className="break-words text-xl font-black leading-tight tracking-[-0.04em] text-slate-900">
           {value}
         </p>
-        <p className="truncate text-xs font-semibold text-slate-500">{label}</p>
-        <p className="mt-1 truncate text-[11px] text-slate-400">{detail}</p>
+        <p className="mt-1 text-xs font-semibold leading-tight text-slate-500">
+          {label}
+        </p>
+        <p className="mt-1 text-[11px] leading-tight text-slate-400">
+          {detail}
+        </p>
       </div>
     </Card>
   );

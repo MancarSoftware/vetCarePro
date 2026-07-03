@@ -7,6 +7,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
   MaxLength,
   ValidateNested,
 } from 'class-validator';
@@ -14,8 +15,26 @@ import { InitialPaymentDto } from './initial-payment.dto';
 import { PaymentItemDto } from './payment-item.dto';
 
 export class CreatePaymentDto {
+  @IsOptional()
   @IsUUID()
-  ownerId!: string;
+  ownerId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  walkInCustomerName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  @Matches(/^\d{1,10}$/)
+  walkInCustomerPhone?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  @Matches(/^\d{1,10}$/)
+  walkInCustomerDocument?: string;
 
   @IsOptional()
   @IsUUID()

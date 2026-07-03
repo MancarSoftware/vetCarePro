@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { MediaCategory } from '../../generated/prisma/enums';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePetDto } from './dto/create-pet.dto';
 import { PetsQueryDto } from './dto/pets-query.dto';
@@ -72,16 +73,14 @@ export class PetsService {
               phone: true,
             },
           },
+          mediaFiles: this.profileMediaInclude(),
         },
       }),
       this.prisma.pet.count({ where }),
     ]);
 
     return {
-      items: items.map((pet) => ({
-        ...pet,
-        weightKg: pet.weightKg?.toNumber() ?? null,
-      })),
+      items: items.map((pet) => this.toPublicPet(pet)),
       total,
       page: query.page,
       pageSize: query.pageSize,
@@ -94,6 +93,7 @@ export class PetsService {
       where: { id: petId, deletedAt: null },
       include: {
         owner: true,
+        mediaFiles: this.profileMediaInclude(),
         _count: {
           select: {
             appointments: true,
@@ -109,8 +109,8 @@ export class PetsService {
       throw new NotFoundException('La mascota no existe');
     }
     return {
-      ...pet,
-      weightKg: pet.weightKg?.toNumber() ?? null,
+      ...this.toPublicPet(pet),
+      _count: pet._count,
     };
   }
 
@@ -253,5 +253,34 @@ export class PetsService {
     const normalized = value?.trim();
     return normalized ? normalized : null;
   }
-}
 
+  private profileMediaInclude() {
+    return {
+      where: {
+        category: MediaCategory.PET_PROFILE,
+        deletedAt: null,
+        mimeType: { startsWith: 'image/' },
+      },
+      orderBy: { createdAt: 'desc' as const },
+      take: 1,
+      select: { id: true },
+    };
+  }
+
+  private toPublicPet<
+    T extends {
+      weightKg: { toNumber(): number } | null;
+      photoPath: string | null;
+      mediaFiles?: Array<{ id: string }>;
+    },
+  >(pet: T) {
+    const { mediaFiles: profileMedia, ...publicPet } = pet;
+    return {
+      ...publicPet,
+      weightKg: pet.weightKg?.toNumber() ?? null,
+      photoPath:
+        pet.photoPath ??
+        (profileMedia?.[0] ? `/media/${profileMedia[0].id}/content` : null),
+    };
+  }
+}

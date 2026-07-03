@@ -42,12 +42,64 @@ interface SetupStatus {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+const browserApiBaseUrl =
+  import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:4782/api';
+
+function getBrowserRuntimeConfig() {
+  return {
+    configured: true,
+    mode: 'local' as const,
+    serverHost: '127.0.0.1',
+    apiPort: 4782,
+    apiBaseUrl: browserApiBaseUrl,
+    healthUrl: `${browserApiBaseUrl}/health`,
+    updatedAt: new Date(0).toISOString(),
+  };
+}
 
 const browserBridge: Window['vetcare'] = {
   platform: 'win32',
   versions: {
     electron: 'browser-preview',
     chrome: 'browser-preview',
+  },
+  runtime: {
+    getConfig: async () => getBrowserRuntimeConfig(),
+    getDeviceIdentity: async () => ({
+      deviceId: 'browser-preview-device',
+      deviceName: 'Browser Preview',
+    }),
+    getLanAddresses: async () => [],
+    saveConfig: async () => getBrowserRuntimeConfig(),
+    testConnection: async () => {
+      const config = getBrowserRuntimeConfig();
+      try {
+        const response = await fetch(config.healthUrl, {
+          signal: AbortSignal.timeout(2500),
+        });
+        return {
+          ok: response.ok,
+          status: response.status,
+          apiBaseUrl: config.apiBaseUrl,
+          healthUrl: config.healthUrl,
+          message: response.ok
+            ? 'Conexion correcta con la API de VetCare Pro.'
+            : `La API respondio con estado ${response.status}.`,
+          checkedAt: new Date().toISOString(),
+        };
+      } catch (error) {
+        return {
+          ok: false,
+          apiBaseUrl: config.apiBaseUrl,
+          healthUrl: config.healthUrl,
+          message:
+            error instanceof Error
+              ? `No se pudo conectar con la API: ${error.message}`
+              : 'No se pudo conectar con la API.',
+          checkedAt: new Date().toISOString(),
+        };
+      }
+    },
   },
   auth: {
     getRefreshToken: async () =>
@@ -71,7 +123,25 @@ function getDeviceName(): string {
   const bridge = getDesktopBridge();
   const platform =
     bridge.platform === 'win32' ? 'Windows' : bridge.platform;
-  return `VetCare Pro Desktop · ${platform}`;
+  return `VetCare Pro Desktop Â· ${platform}`;
+}
+
+async function registerLanClientIfNeeded(): Promise<void> {
+  const bridge = getDesktopBridge();
+  const config = await bridge.runtime.getConfig();
+  if (config.mode !== 'lan-client') {
+    return;
+  }
+
+  const identity = await bridge.runtime.getDeviceIdentity();
+  await apiRequest('/lan-license/register-device', {
+    method: 'POST',
+    body: {
+      deviceId: identity.deviceId,
+      deviceName: identity.deviceName,
+      runtimeMode: 'lan-client',
+    },
+  });
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -102,7 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshPromiseRef.current = (async () => {
       const refreshToken = await getDesktopBridge().auth.getRefreshToken();
       if (!refreshToken) {
-        throw new ApiError('No hay una sesión guardada', 401);
+        throw new ApiError('No hay una sesiÃ³n guardada', 401);
       }
 
       const response = await apiRequest<AuthResponse>('/auth/refresh', {
@@ -185,6 +255,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (input: LoginInput) => {
+      accessTokenRef.current = null;
+      setUser(null);
+      setStatus('unauthenticated');
+      await getDesktopBridge().auth.clearRefreshToken();
+      await registerLanClientIfNeeded();
+
       const response = await apiRequest<AuthResponse>('/auth/login', {
         method: 'POST',
         body: {
@@ -231,6 +307,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const restore = async () => {
       try {
+        await registerLanClientIfNeeded();
         const setup = await apiRequest<SetupStatus>('/auth/setup-status');
         if (!active) return;
         if (setup.setupRequired) {

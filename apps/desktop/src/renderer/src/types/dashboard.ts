@@ -3,6 +3,8 @@ export interface DashboardMetrics {
   appointmentsToday: number;
   pendingVaccines: number;
   monthlyIncome: number;
+  monthlyExpenses: number;
+  monthlyNetIncome: number;
 }
 
 export interface DashboardPet {

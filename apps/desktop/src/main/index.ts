@@ -1,4 +1,4 @@
-﻿import {
+import {
   app,
   BrowserWindow,
   dialog,
@@ -7,6 +7,7 @@
   screen,
   shell,
 } from 'electron';
+import { randomUUID } from 'node:crypto';
 import { createWriteStream, existsSync } from 'node:fs';
 import {
   access,
@@ -20,9 +21,20 @@ import {
 import type { ChildProcess } from 'node:child_process';
 import { spawn } from 'node:child_process';
 import { delimiter, dirname, join } from 'node:path';
-
+import { hostname, networkInterfaces } from 'node:os';
+import {
+  normalizeRuntimeConfig,
+  persistedRuntimeConfig,
+  type SaveVetCareRuntimeConfigInput,
+  type VetCareDeviceIdentity,
+  type VetCareConnectionTestResult,
+  type VetCareLanAddress,
+  type VetCareRuntimeConfig,
+} from '../shared/runtime-config';
 const REFRESH_TOKEN_FILE = 'session.bin';
-const API_URL = 'http://127.0.0.1:4782/api/health';
+const RUNTIME_CONFIG_FILE = 'runtime-config.json';
+const DEVICE_ID_FILE = 'device-id.txt';
+const DEFAULT_SUPPORT_CODE = 'VCP-SOPORTE-110';
 const LOCAL_DATA_DIR = 'C:\\VetCarePro';
 const POSTGRES_PORT = '54529';
 const POSTGRES_USER = 'vetcare';
@@ -35,6 +47,241 @@ let postgresProcess: ChildProcess | null = null;
 
 function getRefreshTokenPath(): string {
   return join(app.getPath('userData'), 'auth', REFRESH_TOKEN_FILE);
+}
+
+function getRuntimeConfigPath(): string {
+  return join(app.getPath('userData'), RUNTIME_CONFIG_FILE);
+}
+
+function getDeviceIdPath(): string {
+  return join(app.getPath('userData'), DEVICE_ID_FILE);
+}
+
+function definedRuntimeInput(
+  input: SaveVetCareRuntimeConfigInput,
+): SaveVetCareRuntimeConfigInput {
+  const output: SaveVetCareRuntimeConfigInput = {};
+  if (input.mode !== undefined && input.mode !== '') {
+    output.mode = input.mode;
+  }
+  if (input.serverHost !== undefined && input.serverHost !== '') {
+    output.serverHost = input.serverHost;
+  }
+  if (input.apiPort !== undefined && input.apiPort !== '') {
+    output.apiPort = input.apiPort;
+  }
+  return output;
+}
+
+function supportCode(): string {
+  return process.env.VETCARE_SUPPORT_CODE ?? DEFAULT_SUPPORT_CODE;
+}
+
+function didRuntimeConnectionChange(
+  current: VetCareRuntimeConfig,
+  next: VetCareRuntimeConfig,
+): boolean {
+  return (
+    current.configured &&
+    (current.mode !== next.mode ||
+      current.serverHost !== next.serverHost ||
+      current.apiPort !== next.apiPort)
+  );
+}
+
+function assertTechnicalCode(
+  input: SaveVetCareRuntimeConfigInput,
+  current: VetCareRuntimeConfig,
+  next: VetCareRuntimeConfig,
+): void {
+  if (!didRuntimeConnectionChange(current, next)) {
+    return;
+  }
+
+  if ((input.technicalCode ?? '').trim() !== supportCode()) {
+    throw new Error(
+      'Codigo tecnico incorrecto. Solicita soporte para cambiar la configuracion LAN.',
+    );
+  }
+}
+
+function runtimeConfigFromEnvironment(): SaveVetCareRuntimeConfigInput {
+  return definedRuntimeInput({
+    mode: process.env.VETCARE_RUNTIME_MODE,
+    serverHost: process.env.VETCARE_SERVER_HOST ?? process.env.VETCARE_API_HOST,
+    apiPort: process.env.VETCARE_API_PORT ?? process.env.API_PORT,
+  });
+}
+
+function hasRuntimeEnvironmentOverride(
+  input: SaveVetCareRuntimeConfigInput,
+): boolean {
+  return (
+    input.mode !== undefined ||
+    input.serverHost !== undefined ||
+    input.apiPort !== undefined
+  );
+}
+
+async function readRuntimeConfig(): Promise<VetCareRuntimeConfig> {
+  let fileConfig: SaveVetCareRuntimeConfigInput = {};
+  let hasFileConfig = false;
+
+  try {
+    fileConfig = JSON.parse(
+      await readFile(getRuntimeConfigPath(), 'utf8'),
+    ) as SaveVetCareRuntimeConfigInput;
+    hasFileConfig = true;
+  } catch {
+    fileConfig = {};
+  }
+
+  const environmentConfig = runtimeConfigFromEnvironment();
+  return normalizeRuntimeConfig({
+    ...fileConfig,
+    ...environmentConfig,
+    configured:
+      fileConfig.configured === true ||
+      hasFileConfig ||
+      hasRuntimeEnvironmentOverride(environmentConfig),
+  });
+}
+
+async function saveRuntimeConfig(
+  input: SaveVetCareRuntimeConfigInput,
+): Promise<VetCareRuntimeConfig> {
+  const current = await readRuntimeConfig();
+  const config = normalizeRuntimeConfig({
+    mode: current.mode,
+    serverHost: current.serverHost,
+    apiPort: current.apiPort,
+    ...definedRuntimeInput(input),
+    configured: true,
+  });
+
+  assertTechnicalCode(input, current, config);
+
+  const configPath = getRuntimeConfigPath();
+
+  await mkdir(dirname(configPath), { recursive: true });
+  await writeFile(
+    configPath,
+    `${JSON.stringify(persistedRuntimeConfig(config), null, 2)}\n`,
+    'utf8',
+  );
+  return config;
+}
+
+async function getDeviceIdentity(): Promise<VetCareDeviceIdentity> {
+  const devicePath = getDeviceIdPath();
+  let deviceId = '';
+
+  try {
+    deviceId = (await readFile(devicePath, 'utf8')).trim();
+  } catch {
+    deviceId = '';
+  }
+
+  if (!deviceId) {
+    deviceId = `vcp-${randomUUID()}`;
+    await mkdir(dirname(devicePath), { recursive: true });
+    await writeFile(devicePath, `${deviceId}\n`, 'utf8');
+  }
+
+  return {
+    deviceId,
+    deviceName: hostname() || 'VetCare Pro PC',
+  };
+}
+
+function classifyLanAddress(name: string): Omit<VetCareLanAddress, 'name' | 'address'> {
+  const normalized = name.toLowerCase();
+  if (
+    normalized.includes('vethernet') ||
+    normalized.includes('hyper-v') ||
+    normalized.includes('wsl') ||
+    normalized.includes('docker') ||
+    normalized.includes('virtualbox') ||
+    normalized.includes('vmware') ||
+    normalized.includes('loopback')
+  ) {
+    return {
+      kind: 'virtual',
+      label: 'Red virtual - no usar',
+      hint: 'Ignorala para clientes LAN. Es una red interna de Windows o de maquinas virtuales.',
+    };
+  }
+
+  if (
+    normalized.includes('wi-fi') ||
+    normalized.includes('wifi') ||
+    normalized.includes('wireless') ||
+    normalized.includes('ethernet')
+  ) {
+    return {
+      kind: 'recommended',
+      label: 'Usar esta IP en clientes LAN',
+      hint: 'Copia esta IP en las PCs cliente si esta es la conexion real del servidor.',
+    };
+  }
+
+  return {
+    kind: 'other',
+    label: 'Revisar antes de usar',
+    hint: 'Usala solo si corresponde a la red real del router de la veterinaria.',
+  };
+}
+
+function getLanAddresses(): VetCareLanAddress[] {
+  return Object.entries(networkInterfaces()).flatMap(([name, addresses]) =>
+    (addresses ?? [])
+      .filter((address) => address.family === 'IPv4' && !address.internal)
+      .map((address) => ({
+        name,
+        address: address.address,
+        ...classifyLanAddress(name),
+      })),
+  );
+}
+
+async function testRuntimeConnection(
+  input?: SaveVetCareRuntimeConfigInput,
+): Promise<VetCareConnectionTestResult> {
+  const current = await readRuntimeConfig();
+  const config = normalizeRuntimeConfig({
+    mode: current.mode,
+    serverHost: current.serverHost,
+    apiPort: current.apiPort,
+    ...definedRuntimeInput(input ?? {}),
+  });
+  const checkedAt = new Date().toISOString();
+
+  try {
+    const response = await fetch(config.healthUrl, {
+      signal: AbortSignal.timeout(2500),
+    });
+    return {
+      ok: response.ok,
+      status: response.status,
+      apiBaseUrl: config.apiBaseUrl,
+      healthUrl: config.healthUrl,
+      message: response.ok
+        ? 'Conexion correcta con la API de VetCare Pro.'
+        : `La API respondio con estado ${response.status}.`,
+      checkedAt,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      apiBaseUrl: config.apiBaseUrl,
+      healthUrl: config.healthUrl,
+      message:
+        error instanceof Error
+          ? `No se pudo conectar con la API: ${error.message}`
+          : 'No se pudo conectar con la API.',
+      checkedAt,
+    };
+  }
 }
 
 function getWindowIconPath(): string | undefined {
@@ -66,13 +313,17 @@ function shouldStartEmbeddedPostgres(): boolean {
   return configured === DEFAULT_DATABASE_URL;
 }
 
-function runtimeEnv(): NodeJS.ProcessEnv {
+function runtimeEnv(config: VetCareRuntimeConfig): NodeJS.ProcessEnv {
   return {
     ...process.env,
     DATABASE_URL: databaseUrl(),
-    API_HOST: process.env.API_HOST ?? '127.0.0.1',
-    API_PORT: process.env.API_PORT ?? '4782',
+    API_HOST:
+      process.env.API_HOST ??
+      (config.mode === 'lan-server' ? '0.0.0.0' : '127.0.0.1'),
+    API_PORT: process.env.API_PORT ?? String(config.apiPort),
     VETCARE_DATA_DIR: localDataDir(),
+    VETCARE_RUNTIME_MODE: config.mode,
+    VETCARE_API_BASE_URL: config.apiBaseUrl,
     UPLOADS_PATH:
       process.env.UPLOADS_PATH ?? join(localDataDir(), 'uploads'),
     BACKUPS_PATH:
@@ -155,18 +406,20 @@ async function fileExists(path: string): Promise<boolean> {
   }
 }
 
-async function isApiHealthy(): Promise<boolean> {
+async function isApiHealthy(config: VetCareRuntimeConfig): Promise<boolean> {
   try {
-    const response = await fetch(API_URL, { signal: AbortSignal.timeout(900) });
+    const response = await fetch(config.healthUrl, {
+      signal: AbortSignal.timeout(900),
+    });
     return response.ok;
   } catch {
     return false;
   }
 }
 
-async function waitForApi(): Promise<void> {
+async function waitForApi(config: VetCareRuntimeConfig): Promise<void> {
   for (let attempt = 1; attempt <= 60; attempt += 1) {
-    if (await isApiHealthy()) {
+    if (await isApiHealthy(config)) {
       return;
     }
     await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -350,6 +603,28 @@ async function initializePostgresIfNeeded(env: NodeJS.ProcessEnv): Promise<void>
 }
 
 async function ensureDatabaseExists(env: NodeJS.ProcessEnv): Promise<void> {
+  const databaseExists = await runCommand(
+    postgresCommandPath('psql.exe'),
+    [
+      '-h',
+      '127.0.0.1',
+      '-p',
+      POSTGRES_PORT,
+      '-U',
+      POSTGRES_USER,
+      '-d',
+      'postgres',
+      '-tAc',
+      `SELECT 1 FROM pg_database WHERE datname='${POSTGRES_DATABASE}'`,
+    ],
+    { env, timeoutMs: 30000 },
+  );
+
+  if (databaseExists.trim() === '1') {
+    await runtimeLog(`Database ${POSTGRES_DATABASE} already exists.`);
+    return;
+  }
+
   try {
     await runCommand(
       postgresCommandPath('createdb.exe'),
@@ -367,7 +642,12 @@ async function ensureDatabaseExists(env: NodeJS.ProcessEnv): Promise<void> {
     await runtimeLog(`Database ${POSTGRES_DATABASE} created.`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    if (message.toLowerCase().includes('already exists')) {
+    const normalizedMessage = message.toLowerCase();
+    if (
+      normalizedMessage.includes('already exists') ||
+      normalizedMessage.includes('ya existe') ||
+      normalizedMessage.includes('existe')
+    ) {
       await runtimeLog(`Database ${POSTGRES_DATABASE} already exists.`);
       return;
     }
@@ -386,11 +666,13 @@ async function startEmbeddedPostgres(env: NodeJS.ProcessEnv): Promise<void> {
   const initdbExe = postgresCommandPath('initdb.exe');
   const createdbExe = postgresCommandPath('createdb.exe');
   const pgIsReadyExe = postgresCommandPath('pg_isready.exe');
+  const psqlExe = postgresCommandPath('psql.exe');
 
   await assertFileExists(postgresExe, 'PostgreSQL embebido');
   await assertFileExists(initdbExe, 'initdb embebido');
   await assertFileExists(createdbExe, 'createdb embebido');
   await assertFileExists(pgIsReadyExe, 'pg_isready embebido');
+  await assertFileExists(psqlExe, 'psql embebido');
 
   await initializePostgresIfNeeded(pgEnv);
 
@@ -436,17 +718,31 @@ function stopPostgresProcess(): void {
   postgresProcess = null;
 }
 
-async function startEmbeddedRuntime(): Promise<void> {
+async function startEmbeddedRuntime(
+  configOverride?: VetCareRuntimeConfig,
+): Promise<void> {
+  const config = configOverride ?? (await readRuntimeConfig());
+
+  if (!config.configured) {
+    await runtimeLog('Embedded runtime skipped until this PC is configured.');
+    return;
+  }
   if (!app.isPackaged || process.env.VETCARE_SKIP_EMBEDDED_API === '1') {
     await runtimeLog('Embedded runtime skipped.');
     return;
   }
-  if (await isApiHealthy()) {
+  if (config.mode === 'lan-client') {
+    await runtimeLog(
+      `Embedded runtime skipped because this PC is configured as LAN client: ${config.apiBaseUrl}.`,
+    );
+    return;
+  }
+  if (await isApiHealthy(config)) {
     await runtimeLog('API already healthy.');
     return;
   }
 
-  await runtimeLog('Preparing embedded runtime.');
+  await runtimeLog(`Preparing embedded runtime in ${config.mode} mode.`);
   await ensureLocalFolders();
 
   const runtimePath = join(process.resourcesPath, 'runtime');
@@ -454,7 +750,7 @@ async function startEmbeddedRuntime(): Promise<void> {
   const apiPath = join(runtimePath, 'api');
   const apiMainPath = join(apiPath, 'dist', 'main.js');
   const migrationPath = join(apiPath, 'scripts', 'migrate-database.js');
-  const env = runtimeEnv();
+  const env = runtimeEnv(config);
 
   await assertFileExists(nodePath, 'Node.js embebido');
   await assertFileExists(apiMainPath, 'API local embebida');
@@ -482,8 +778,27 @@ async function startEmbeddedRuntime(): Promise<void> {
     apiProcess = null;
   });
 
-  await waitForApi();
+  await waitForApi(config);
   await runtimeLog('API health check completed.');
+}
+
+function registerRuntimeConfigHandlers(): void {
+  ipcMain.handle('runtime:get-config', async () => readRuntimeConfig());
+  ipcMain.handle('runtime:get-device-identity', async () => getDeviceIdentity());
+  ipcMain.handle('runtime:get-lan-addresses', () => getLanAddresses());
+  ipcMain.handle(
+    'runtime:save-config',
+    async (_event, input: SaveVetCareRuntimeConfigInput) => {
+      const config = await saveRuntimeConfig(input ?? {});
+      await startEmbeddedRuntime(config);
+      return config;
+    },
+  );
+  ipcMain.handle(
+    'runtime:test-connection',
+    async (_event, input?: SaveVetCareRuntimeConfigInput) =>
+      testRuntimeConnection(input),
+  );
 }
 
 function registerAuthStorageHandlers(): void {
@@ -565,6 +880,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(async () => {
+  registerRuntimeConfigHandlers();
   registerAuthStorageHandlers();
   try {
     await startEmbeddedRuntime();

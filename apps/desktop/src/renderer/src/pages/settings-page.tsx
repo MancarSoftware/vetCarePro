@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useAuth } from '@/contexts/auth-context';
+import { useRuntimeConfig } from '@/contexts/runtime-config-context';
 import { cn } from '@/lib/utils';
 import type {
   AppSettings,
@@ -62,8 +63,21 @@ const defaultPreferences: SystemPreferences = {
   enableAuditLog: true,
 };
 
+const runtimeModeLabels: Record<VetCareRuntimeMode, string> = {
+  local: 'Una sola PC',
+  'lan-server': 'Servidor LAN',
+  'lan-client': 'Cliente LAN',
+};
+
+const runtimeModeHelpers: Record<VetCareRuntimeMode, string> = {
+  local: 'Operacion local clasica',
+  'lan-server': 'PC principal de la red',
+  'lan-client': 'Conectado a servidor',
+};
+
 export function SettingsPage() {
   const { request, user } = useAuth();
+  const { config, openConfigurator } = useRuntimeConfig();
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [clinic, setClinic] = useState<ClinicSettings>(emptyClinic);
   const [preferences, setPreferences] =
@@ -215,8 +229,8 @@ export function SettingsPage() {
         <SettingsMetric
           icon={Network}
           label="Modo de red"
-          value={local?.lanReady ? 'LAN activa' : 'Local'}
-          helper="Preparado para LAN futura"
+          value={runtimeModeLabels[config.mode]}
+          helper={runtimeModeHelpers[config.mode]}
           tone="amber"
         />
       </section>
@@ -484,7 +498,11 @@ export function SettingsPage() {
           <SectionHeader
             icon={HardDrive}
             title="Entorno local"
-            description="Rutas y servicios que usa esta instalacion de Windows."
+            description={
+              config.mode === 'lan-client'
+                ? 'Rutas y servicios centrales entregados por la PC Servidor LAN.'
+                : 'Rutas y servicios que usa esta instalacion de Windows.'
+            }
           />
           {local ? (
             <div className="mt-5 grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -523,20 +541,33 @@ export function SettingsPage() {
         <Card className="p-5">
           <SectionHeader
             icon={Network}
-            title="Preparacion LAN"
-            description="El sistema sigue siendo local, pero la arquitectura ya separa desktop, API y base de datos."
+            title="Estado LAN"
+            description="Configuracion de red activa para esta instalacion de VetCare Pro."
           />
           <div className="mt-5 space-y-3">
+            <ReadinessLine label={`Modo actual: ${runtimeModeLabels[config.mode]}`} ready />
             <ReadinessLine label="Frontend Electron" ready />
-            <ReadinessLine label="API local NestJS" ready />
-            <ReadinessLine label="PostgreSQL separado" ready />
-            <ReadinessLine label="Archivos por ruta configurable" ready />
-            <ReadinessLine label="Modo LAN multi-PC" ready={Boolean(local?.lanReady)} />
+            <ReadinessLine label="Conexion por API" ready />
+            <ReadinessLine label="PostgreSQL centralizado en servidor" ready={config.mode !== 'lan-client' ? Boolean(local?.lanReady) : true} />
+            <ReadinessLine label="Archivos clinicos centralizados" ready />
           </div>
           <div className="mt-5 rounded-2xl bg-teal-50 p-4 text-sm leading-6 text-teal-800">
-            La version actual trabaja en una sola computadora. Para LAN futura
-            solo se tendra que exponer la API y centralizar PostgreSQL y
-            archivos en la PC servidor.
+            <p className="font-bold">Conexion activa</p>
+            <p className="mt-1 break-all font-mono text-xs font-semibold">
+              {config.apiBaseUrl}
+            </p>
+            <p className="mt-2">
+              {config.mode === 'lan-client'
+                ? 'Esta PC no guarda la base de datos; trabaja contra el servidor configurado.'
+                : 'Esta PC puede operar como instalacion local o como servidor para otras computadoras.'}
+            </p>
+            <Button
+              type="button"
+              onClick={openConfigurator}
+              className="mt-4 h-10 rounded-xl bg-teal-600 px-4 text-white hover:bg-teal-700"
+            >
+              Cambiar configuracion LAN
+            </Button>
           </div>
         </Card>
       </section>

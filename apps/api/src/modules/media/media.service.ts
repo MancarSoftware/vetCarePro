@@ -3,6 +3,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '../../generated/prisma/client';
+import { MediaCategory } from '../../generated/prisma/enums';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateMediaDto } from './dto/create-media.dto';
 import { MediaQueryDto } from './dto/media-query.dto';
@@ -108,6 +110,7 @@ export class MediaService {
     if (dto.treatmentId) {
       await this.ensureTreatment(dto.treatmentId, dto.petId);
     }
+    this.ensureProfileMediaIsImage(dto.category, file.mimetype);
 
     const stored = await this.storage.store(file, dto.petId);
     try {
@@ -160,6 +163,12 @@ export class MediaService {
             },
           },
         });
+        if (created.category === MediaCategory.PET_PROFILE) {
+          await transaction.pet.update({
+            where: { id: created.petId },
+            data: { photoPath: this.contentUrl(created.id) },
+          });
+        }
         await transaction.auditLog.create({
           data: {
             actorId,
@@ -189,7 +198,8 @@ export class MediaService {
   }
 
   async update(actorId: string, mediaId: string, dto: UpdateMediaDto) {
-    await this.ensureMedia(mediaId);
+    const current = await this.ensureMedia(mediaId);
+    this.ensureProfileMediaIsImage(dto.category, current.mimeType);
     const data = {
       ...(dto.category ? { category: dto.category } : {}),
       ...(dto.tags !== undefined
@@ -234,6 +244,14 @@ export class MediaService {
           },
         },
       });
+      if (updated.category === MediaCategory.PET_PROFILE) {
+        await transaction.pet.update({
+          where: { id: updated.petId },
+          data: { photoPath: this.contentUrl(updated.id) },
+        });
+      } else if (current.category === MediaCategory.PET_PROFILE) {
+        await this.refreshPetProfilePhoto(transaction, updated.petId);
+      }
       await transaction.auditLog.create({
         data: {
           actorId,
@@ -259,21 +277,24 @@ export class MediaService {
   }
 
   async remove(actorId: string, mediaId: string) {
-    await this.ensureMedia(mediaId);
-    await this.prisma.$transaction([
-      this.prisma.mediaFile.update({
+    const current = await this.ensureMedia(mediaId);
+    await this.prisma.$transaction(async (transaction) => {
+      await transaction.mediaFile.update({
         where: { id: mediaId },
         data: { deletedAt: new Date() },
-      }),
-      this.prisma.auditLog.create({
+      });
+      if (current.category === MediaCategory.PET_PROFILE) {
+        await this.refreshPetProfilePhoto(transaction, current.petId);
+      }
+      await transaction.auditLog.create({
         data: {
           actorId,
           action: 'DELETE',
           entityType: 'MediaFile',
           entityId: mediaId,
         },
-      }),
-    ]);
+      });
+    });
     return { success: true };
   }
 
@@ -332,6 +353,45 @@ export class MediaService {
           .map((tag) => tag.slice(0, 50)),
       ),
     ].slice(0, 10);
+  }
+
+  private ensureProfileMediaIsImage(
+    category: MediaCategory | undefined,
+    mimeType: string,
+  ) {
+    if (category !== MediaCategory.PET_PROFILE) return;
+    if (!mimeType.startsWith('image/')) {
+      throw new BadRequestException(
+        'La categoria Perfil solo permite imagenes de la mascota',
+      );
+    }
+  }
+
+  private contentUrl(mediaId: string) {
+    return `/media/${mediaId}/content`;
+  }
+
+  private async refreshPetProfilePhoto(
+    transaction: Prisma.TransactionClient,
+    petId: string,
+  ) {
+    const latestProfile = await transaction.mediaFile.findFirst({
+      where: {
+        petId,
+        category: MediaCategory.PET_PROFILE,
+        deletedAt: null,
+        mimeType: { startsWith: 'image/' },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    });
+
+    await transaction.pet.update({
+      where: { id: petId },
+      data: {
+        photoPath: latestProfile ? this.contentUrl(latestProfile.id) : null,
+      },
+    });
   }
 
   private toPublicMedia<

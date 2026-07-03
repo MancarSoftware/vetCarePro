@@ -91,7 +91,15 @@ const statusPresentation: Record<
   },
 };
 
-export function PaymentsPage() {
+interface PaymentsPageProps {
+  initialAppointmentId?: string;
+  onInitialAppointmentHandled?: () => void;
+}
+
+export function PaymentsPage({
+  initialAppointmentId,
+  onInitialAppointmentHandled,
+}: PaymentsPageProps = {}) {
   const { request, user } = useAuth();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [summary, setSummary] = useState(emptySummary);
@@ -101,9 +109,12 @@ export function PaymentsPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isReferencesLoading, setIsReferencesLoading] = useState(true);
+  const [referencesError, setReferencesError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [prefillAppointmentId, setPrefillAppointmentId] = useState<string>();
   const [detailPayment, setDetailPayment] = useState<Payment | null>(null);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [isTransactionOpen, setIsTransactionOpen] = useState(false);
@@ -129,26 +140,76 @@ export function PaymentsPage() {
   }, [request, search, statusFilter]);
 
   const loadReferences = useCallback(async () => {
-    const [ownerData, appointmentData, productData] = await Promise.all([
-      request<PaginatedResponse<Owner>>('/owners?page=1&pageSize=100'),
-      request<PaginatedResponse<Appointment>>(
-        '/appointments?page=1&pageSize=100',
-      ),
-      user?.permissions.includes('inventory.read')
-        ? request<PaginatedResponse<InventoryProduct>>(
-            '/inventory/products?page=1&pageSize=100&stockStatus=ALL',
-          )
-        : Promise.resolve({
-            items: [],
-            total: 0,
-            page: 1,
-            pageSize: 100,
-            totalPages: 1,
-          }),
-    ]);
-    setOwners(ownerData.items);
-    setAppointments(appointmentData.items);
-    setProducts(productData.items);
+    setIsReferencesLoading(true);
+    setReferencesError(null);
+    const [
+      ownerResult,
+      confirmedAppointmentResult,
+      completedAppointmentResult,
+      productResult,
+    ] =
+      await Promise.allSettled([
+        request<PaginatedResponse<Owner>>('/owners?page=1&pageSize=100'),
+        request<PaginatedResponse<Appointment>>(
+          '/appointments?page=1&pageSize=300&status=CONFIRMED',
+        ),
+        request<PaginatedResponse<Appointment>>(
+          '/appointments?page=1&pageSize=300&status=COMPLETED',
+        ),
+        user?.permissions.includes('inventory.read')
+          ? request<PaginatedResponse<InventoryProduct>>(
+              '/inventory/products?page=1&pageSize=100&stockStatus=ALL',
+            )
+          : Promise.resolve({
+              items: [],
+              total: 0,
+              page: 1,
+              pageSize: 100,
+              totalPages: 1,
+            }),
+      ]);
+    const issues: string[] = [];
+
+    if (ownerResult.status === 'fulfilled') {
+      setOwners(ownerResult.value.items);
+    } else {
+      setOwners([]);
+      issues.push(
+        'No se pudieron cargar los dueños/clientes. Verifica que Caja tenga permiso para leer dueños y que esté conectado al servidor correcto.',
+      );
+    }
+
+    const appointmentItems = [
+      ...(confirmedAppointmentResult.status === 'fulfilled'
+        ? confirmedAppointmentResult.value.items
+        : []),
+      ...(completedAppointmentResult.status === 'fulfilled'
+        ? completedAppointmentResult.value.items
+        : []),
+    ].filter(
+      (appointment, index, all) =>
+        all.findIndex((item) => item.id === appointment.id) === index,
+    );
+    setAppointments(appointmentItems);
+    if (
+      confirmedAppointmentResult.status === 'rejected' &&
+      completedAppointmentResult.status === 'rejected'
+    ) {
+      setAppointments([]);
+      issues.push('No se pudieron cargar las citas para asociarlas al cobro.');
+    }
+
+    if (productResult.status === 'fulfilled') {
+      setProducts(productResult.value.items);
+    } else {
+      setProducts([]);
+      issues.push(
+        'No se pudo cargar inventario. Puedes seguir cobrando servicios, pero no productos.',
+      );
+    }
+
+    setReferencesError(issues.length ? issues.join(' ') : null);
+    setIsReferencesLoading(false);
   }, [request, user?.permissions]);
 
   const refresh = useCallback(async () => {
@@ -167,9 +228,69 @@ export function PaymentsPage() {
     }
   }, [loadPayments]);
 
+  const openCreatePayment = async () => {
+    setError(null);
+    setIsReferencesLoading(true);
+    await loadReferences();
+    setPrefillAppointmentId(undefined);
+    setIsFormOpen(true);
+  };
+
   useEffect(() => {
     void loadReferences();
   }, [loadReferences]);
+
+  useEffect(() => {
+    if (!initialAppointmentId || isReferencesLoading) return;
+    let cancelled = false;
+
+    const openFromAppointment = async () => {
+      let appointment = appointments.find(
+        (item) => item.id === initialAppointmentId,
+      );
+      if (!appointment) {
+        try {
+          appointment = await request<Appointment>(
+            `/appointments/${initialAppointmentId}`,
+          );
+          if (!cancelled) {
+            setAppointments((current) =>
+              current.some((item) => item.id === appointment?.id)
+                ? current
+                : appointment
+                  ? [appointment, ...current]
+                  : current,
+            );
+          }
+        } catch {
+          if (!cancelled) {
+            setError(
+              'No se encontro la cita seleccionada para generar el cobro. Actualiza caja e intenta nuevamente.',
+            );
+            onInitialAppointmentHandled?.();
+          }
+          return;
+        }
+      }
+
+      if (cancelled) return;
+      setError(null);
+      setPrefillAppointmentId(initialAppointmentId);
+      setIsFormOpen(true);
+      onInitialAppointmentHandled?.();
+    };
+
+    void openFromAppointment();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    appointments,
+    initialAppointmentId,
+    isReferencesLoading,
+    onInitialAppointmentHandled,
+    request,
+  ]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void refresh(), 180);
@@ -204,7 +325,16 @@ export function PaymentsPage() {
       const payment = await request<Payment>('/payments', {
         method: 'POST',
         body: {
-          ownerId: form.ownerId,
+          ownerId: optional(form.ownerId),
+          walkInCustomerName: form.walkInSale
+            ? optional(form.walkInCustomerName)
+            : undefined,
+          walkInCustomerPhone: form.walkInSale
+            ? optional(form.walkInCustomerPhone)
+            : undefined,
+          walkInCustomerDocument: form.walkInSale
+            ? optional(form.walkInCustomerDocument)
+            : undefined,
           petId: optional(form.petId),
           appointmentId: optional(form.appointmentId),
           reference: optional(form.reference),
@@ -236,6 +366,7 @@ export function PaymentsPage() {
         },
       });
       setIsFormOpen(false);
+      setPrefillAppointmentId(undefined);
       await refresh();
       setDetailPayment(payment);
     } finally {
@@ -309,12 +440,24 @@ export function PaymentsPage() {
         </div>
         {canManage && (
           <Button
-            onClick={() => setIsFormOpen(true)}
-            disabled={owners.length === 0}
+            onClick={() => {
+              if (isReferencesLoading) {
+                setError(
+                  'VetCare Pro todavia esta cargando clientes, citas e inventario para caja. Intenta nuevamente en unos segundos.',
+                );
+                return;
+              }
+              void openCreatePayment();
+            }}
+            disabled={isReferencesLoading}
             className="h-10 bg-teal-600 px-4 text-white shadow-lg shadow-teal-600/20 hover:bg-teal-700"
           >
-            <Plus className="size-4" />
-            Nuevo cobro
+            {isReferencesLoading ? (
+              <LoaderCircle className="size-4 animate-spin" />
+            ) : (
+              <Plus className="size-4" />
+            )}
+            {isReferencesLoading ? 'Cargando caja...' : 'Nuevo cobro'}
           </Button>
         )}
       </div>
@@ -417,9 +560,13 @@ export function PaymentsPage() {
         <PaymentFormModal
           owners={owners}
           appointments={appointments}
+          initialAppointmentId={prefillAppointmentId}
           products={products}
           submitting={isSubmitting}
-          onClose={() => setIsFormOpen(false)}
+          onClose={() => {
+            setIsFormOpen(false);
+            setPrefillAppointmentId(undefined);
+          }}
           onSubmit={submitPayment}
         />
       )}
@@ -488,6 +635,15 @@ function PaymentsTable({
         <tbody>
           {payments.map((payment) => {
             const status = statusPresentation[payment.status];
+            const customerName =
+              payment.walkInCustomerName ||
+              `${payment.owner.firstName} ${payment.owner.lastName}`;
+            const customerContact =
+              payment.walkInCustomerName
+                ? payment.walkInCustomerPhone ||
+                  payment.walkInCustomerDocument ||
+                  'Sin contacto'
+                : payment.pet?.name || payment.owner.phone;
             const overdue =
               payment.dueAt &&
               payment.status !== 'PAID' &&
@@ -520,10 +676,10 @@ function PaymentsTable({
                 </td>
                 <td className="px-4 py-4">
                   <p className="font-semibold text-slate-700">
-                    {payment.owner.firstName} {payment.owner.lastName}
+                    {customerName}
                   </p>
                   <p className="mt-0.5 text-[11px] text-slate-400">
-                    {payment.pet?.name || payment.owner.phone}
+                    {customerContact}
                   </p>
                 </td>
                 <td className="max-w-[280px] px-4 py-4">
@@ -591,6 +747,13 @@ function PaymentDetailModal({
 }) {
   const status = statusPresentation[payment.status];
   const StatusIcon = status.icon;
+  const customerName =
+    payment.walkInCustomerName ||
+    `${payment.owner.firstName} ${payment.owner.lastName}`;
+  const customerContact =
+    payment.walkInCustomerName
+      ? payment.walkInCustomerPhone || 'Sin telefono'
+      : payment.owner.phone;
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-6 backdrop-blur-sm">
       <Card className="max-h-[94vh] w-full max-w-6xl overflow-y-auto">
@@ -797,13 +960,20 @@ function PaymentDetailModal({
               <DetailRow
                 icon={UserRound}
                 label="Responsable"
-                value={`${payment.owner.firstName} ${payment.owner.lastName}`}
+                value={customerName}
               />
               <DetailRow
                 icon={CreditCard}
                 label="Contacto"
-                value={payment.owner.phone}
+                value={customerContact}
               />
+              {payment.walkInCustomerDocument && (
+                <DetailRow
+                  icon={FileText}
+                  label="Documento"
+                  value={payment.walkInCustomerDocument}
+                />
+              )}
               {payment.pet && (
                 <DetailRow
                   icon={PawPrint}

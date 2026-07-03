@@ -1,4 +1,5 @@
 import { useAuth } from '@/contexts/auth-context';
+import { RuntimeStatusPill } from '@/components/runtime/runtime-status-pill';
 import type { BackupRecord, PaginatedResponse } from '@/types/clinical';
 import type { DashboardSummary } from '@/types/dashboard';
 import type {
@@ -68,6 +69,24 @@ const notificationToneClasses: Record<AppNotification['tone'], string> = {
   danger: 'bg-rose-50 text-rose-700 ring-rose-100',
 };
 
+const targetPermissions: Partial<Record<NavigationTarget['page'], string>> = {
+  dashboard: 'dashboard.read',
+  pets: 'pets.read',
+  owners: 'owners.read',
+  appointments: 'appointments.read',
+  history: 'medical.read',
+  media: 'medical.read',
+  preventive: 'vaccines.read',
+  treatments: 'treatments.read',
+  payments: 'payments.read',
+  finance: 'finance.read',
+  inventory: 'inventory.read',
+  reports: 'reports.read',
+  backups: 'backups.manage',
+  users: 'users.read',
+  settings: 'settings.manage',
+};
+
 export function Topbar({
   user,
   onLogout,
@@ -88,9 +107,17 @@ export function Topbar({
   const [dashboard, setDashboard] = useState<DashboardSummary | null>(null);
   const [failedBackups, setFailedBackups] = useState<BackupRecord[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const notificationsRef = useRef<HTMLDivElement>(null);
 
   const primaryRole = roleLabels[user.roles[0]] ?? user.roles[0] ?? 'Usuario';
   const canManageBackups = user.permissions.includes('backups.manage');
+  const canNavigateToTarget = useCallback(
+    (target: NavigationTarget) => {
+      const permission = targetPermissions[target.page];
+      return !permission || user.permissions.includes(permission);
+    },
+    [user.permissions],
+  );
 
   const quickActions = useMemo(
     () =>
@@ -218,8 +245,8 @@ export function Topbar({
       });
     }
 
-    return items.slice(0, 12);
-  }, [dashboard, failedBackups]);
+    return items.filter((item) => canNavigateToTarget(item.target)).slice(0, 12);
+  }, [canNavigateToTarget, dashboard, failedBackups]);
 
   const loadNotifications = useCallback(async () => {
     try {
@@ -271,6 +298,40 @@ export function Topbar({
     const timer = window.setTimeout(() => inputRef.current?.focus(), 30);
     return () => window.clearTimeout(timer);
   }, [searchOpen]);
+
+  useEffect(() => {
+    if (!notificationsOpen) return;
+
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (
+        notificationsRef.current &&
+        !notificationsRef.current.contains(event.target as Node)
+      ) {
+        setNotificationsOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setNotificationsOpen(false);
+    };
+    const closeOnScroll = (event: Event) => {
+      if (
+        notificationsRef.current &&
+        notificationsRef.current.contains(event.target as Node)
+      ) {
+        return;
+      }
+      setNotificationsOpen(false);
+    };
+
+    document.addEventListener('pointerdown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    window.addEventListener('scroll', closeOnScroll, true);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+      window.removeEventListener('scroll', closeOnScroll, true);
+    };
+  }, [notificationsOpen]);
 
   useEffect(() => {
     if (!searchOpen) return;
@@ -352,7 +413,10 @@ export function Topbar({
     <header className="sticky top-0 z-20 flex h-[76px] items-center border-b border-slate-200 bg-white/95 px-7 backdrop-blur">
       <button
         type="button"
-        onClick={() => setSearchOpen(true)}
+        onClick={() => {
+          setNotificationsOpen(false);
+          setSearchOpen(true);
+        }}
         className="relative mx-auto h-11 w-full max-w-2xl rounded-xl border border-slate-200 bg-slate-50/70 pl-12 pr-20 text-left text-sm text-slate-500 outline-none transition hover:border-teal-200 hover:bg-white hover:text-slate-700"
       >
         <Search className="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-slate-400" />
@@ -363,7 +427,9 @@ export function Topbar({
       </button>
 
       <div className="ml-auto flex items-center gap-5 pl-8">
-        <div className="relative">
+        <RuntimeStatusPill />
+
+        <div ref={notificationsRef} className="relative">
           <button
             type="button"
             onClick={() => {
@@ -381,8 +447,11 @@ export function Topbar({
           </button>
 
           {notificationsOpen ? (
-            <div className="absolute right-0 top-12 z-40 w-[380px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/10">
-              <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+            <div
+              className="absolute right-0 top-12 z-40 flex max-h-[70vh] w-[360px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/10"
+              onWheel={(event) => event.stopPropagation()}
+            >
+              <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-4 py-3">
                 <div>
                   <p className="text-sm font-bold text-slate-900">Alertas</p>
                   <p className="text-xs text-slate-500">
@@ -397,7 +466,7 @@ export function Topbar({
                   <X className="size-4" />
                 </button>
               </div>
-              <div className="max-h-[420px] overflow-y-auto p-2">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2 pr-3 [scrollbar-gutter:stable]">
                 {notifications.length ? (
                   notifications.map((notification) => (
                     <button

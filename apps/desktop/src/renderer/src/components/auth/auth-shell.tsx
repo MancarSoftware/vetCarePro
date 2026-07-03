@@ -1,6 +1,7 @@
 import { ShieldCheck } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { BrandLogo } from '@/components/brand/brand-logo';
+import { APP_VERSION } from '@/lib/app-version';
 
 export function AuthShell({
   eyebrow,
@@ -53,7 +54,7 @@ export function AuthShell({
         </div>
 
         <p className="relative text-xs text-teal-50/60">
-          VetCare Pro · Versión 1.0.0
+          VetCare Pro · Versión {APP_VERSION}
         </p>
       </section>
 

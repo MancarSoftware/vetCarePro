@@ -133,6 +133,19 @@ enum BackupStatus {
   FAILED
 }
 
+enum ExpenseCategory {
+  INVENTORY
+  SALARIES
+  RENT
+  UTILITIES
+  SERVICES
+  MAINTENANCE
+  TAXES
+  MARKETING
+  ADMINISTRATIVE
+  OTHER
+}
+
 model User {
   id                 String              @id @default(uuid()) @db.Uuid
   firstName          String              @db.VarChar(80)
@@ -155,6 +168,7 @@ model User {
   inventoryMovements InventoryMovement[] @relation("InventoryMovementUser")
   payments           Payment[]           @relation("PaymentCreatedBy")
   paymentTransactions PaymentTransaction[] @relation("PaymentTransactionUser")
+  financeExpenses    FinanceExpense[]  @relation("FinanceExpenseCreatedBy")
   auditLogs          AuditLog[]          @relation("AuditActor")
   settings           Setting[]           @relation("SettingUpdatedBy")
   backups            BackupRecord[]      @relation("BackupCreatedBy")
@@ -288,6 +302,7 @@ model Appointment {
   status         AppointmentStatus @default(PENDING)
   startsAt       DateTime
   endsAt         DateTime
+  estimatedPrice Decimal?          @db.Decimal(12, 2)
   reason         String?           @db.VarChar(255)
   notes          String?           @db.Text
   createdAt      DateTime          @default(now())
@@ -546,6 +561,9 @@ model Payment {
   petId          String?       @db.Uuid
   appointmentId  String?       @db.Uuid
   createdById    String        @db.Uuid
+  walkInCustomerName     String?       @db.VarChar(120)
+  walkInCustomerPhone    String?       @db.VarChar(30)
+  walkInCustomerDocument String?       @db.VarChar(30)
   invoiceNumber  String        @unique @db.VarChar(50)
   reference      String?       @unique @db.VarChar(80)
   description    String        @db.VarChar(255)
@@ -616,6 +634,27 @@ model PaymentTransaction {
   @@map("payment_transactions")
 }
 
+model FinanceExpense {
+  id          String          @id @default(uuid()) @db.Uuid
+  createdById String          @db.Uuid
+  category    ExpenseCategory
+  description String          @db.VarChar(255)
+  amount      Decimal         @db.Decimal(12, 2)
+  vendor      String?         @db.VarChar(180)
+  reference   String?         @db.VarChar(120)
+  occurredAt  DateTime        @db.Date
+  notes       String?         @db.Text
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  deletedAt   DateTime?
+  createdBy   User            @relation("FinanceExpenseCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([occurredAt, deletedAt])
+  @@index([category, occurredAt])
+  @@index([createdById, createdAt])
+  @@map("finance_expenses")
+}
+
 model AuditLog {
   id         String      @id @default(uuid()) @db.Uuid
   actorId    String?     @db.Uuid
@@ -660,4 +699,42 @@ model BackupRecord {
 
   @@index([createdAt])
   @@map("backup_records")
+}
+
+model LanLicense {
+  id             String      @id @default(uuid()) @db.Uuid
+  licenseKey     String      @unique @db.VarChar(1800)
+  licenseId      String      @unique @db.VarChar(80)
+  clinicName     String      @db.VarChar(180)
+  clientLimit    Int
+  issuedAt       DateTime
+  expiresAt      DateTime?
+  activatedAt    DateTime    @default(now())
+  revokedAt      DateTime?
+  payload        Json
+  signature      String      @db.VarChar(128)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  devices        LanDevice[]
+
+  @@index([revokedAt])
+  @@map("lan_licenses")
+}
+
+model LanDevice {
+  id           String     @id @default(uuid()) @db.Uuid
+  licenseId    String     @db.Uuid
+  deviceId     String     @unique @db.VarChar(120)
+  deviceName   String     @db.VarChar(180)
+  runtimeMode  String     @db.VarChar(40)
+  firstSeenAt  DateTime   @default(now())
+  lastSeenAt   DateTime   @default(now())
+  authorizedAt DateTime   @default(now())
+  revokedAt    DateTime?
+  notes        String?    @db.Text
+  license      LanLicense @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+
+  @@index([licenseId, revokedAt])
+  @@index([lastSeenAt])
+  @@map("lan_devices")
 }

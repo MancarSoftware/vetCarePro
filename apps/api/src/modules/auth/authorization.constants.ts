@@ -25,9 +25,10 @@ export const PERMISSIONS = {
   INVENTORY_MANAGE: 'inventory.manage',
   PAYMENTS_READ: 'payments.read',
   PAYMENTS_MANAGE: 'payments.manage',
+  FINANCE_READ: 'finance.read',
+  FINANCE_MANAGE: 'finance.manage',
   REPORTS_READ: 'reports.read',
   SETTINGS_MANAGE: 'settings.manage',
   BACKUPS_MANAGE: 'backups.manage',
   AUDIT_READ: 'audit.read',
 } as const;
-

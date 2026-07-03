@@ -22,6 +22,8 @@ const permissionDescriptions: Record<string, string> = {
   [PERMISSIONS.INVENTORY_MANAGE]: 'Administrar inventario',
   [PERMISSIONS.PAYMENTS_READ]: 'Ver pagos',
   [PERMISSIONS.PAYMENTS_MANAGE]: 'Administrar pagos',
+  [PERMISSIONS.FINANCE_READ]: 'Ver finanzas y rentabilidad',
+  [PERMISSIONS.FINANCE_MANAGE]: 'Registrar y administrar gastos',
   [PERMISSIONS.REPORTS_READ]: 'Ver reportes',
   [PERMISSIONS.SETTINGS_MANAGE]: 'Administrar configuración',
   [PERMISSIONS.BACKUPS_MANAGE]: 'Administrar backups',
@@ -78,8 +80,11 @@ const roleDefinitions = [
       PERMISSIONS.DASHBOARD_READ,
       PERMISSIONS.OWNERS_READ,
       PERMISSIONS.PETS_READ,
+      PERMISSIONS.APPOINTMENTS_READ,
       PERMISSIONS.PAYMENTS_READ,
       PERMISSIONS.PAYMENTS_MANAGE,
+      PERMISSIONS.FINANCE_READ,
+      PERMISSIONS.FINANCE_MANAGE,
       PERMISSIONS.INVENTORY_READ,
       PERMISSIONS.INVENTORY_MANAGE,
       PERMISSIONS.REPORTS_READ,
@@ -135,4 +140,3 @@ export class AuthorizationBootstrapService implements OnModuleInit {
     }
   }
 }
-
