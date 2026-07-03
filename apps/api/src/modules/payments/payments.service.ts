@@ -140,6 +140,24 @@ export class PaymentsService {
               { reference: { contains: search, mode: 'insensitive' } },
               { description: { contains: search, mode: 'insensitive' } },
               {
+                walkInCustomerName: {
+                  contains: search,
+                  mode: 'insensitive',
+                },
+              },
+              {
+                walkInCustomerPhone: {
+                  contains: search,
+                  mode: 'insensitive',
+                },
+              },
+              {
+                walkInCustomerDocument: {
+                  contains: search,
+                  mode: 'insensitive',
+                },
+              },
+              {
                 owner: {
                   OR: [
                     {
@@ -279,6 +297,19 @@ export class PaymentsService {
           'Las ventas mostrador solo pueden contener productos',
         );
       }
+      if (!this.optionalText(dto.walkInCustomerName)) {
+        throw new BadRequestException(
+          'Ingresa el nombre del cliente ocasional',
+        );
+      }
+    } else if (
+      dto.walkInCustomerName ||
+      dto.walkInCustomerPhone ||
+      dto.walkInCustomerDocument
+    ) {
+      throw new BadRequestException(
+        'Los datos de cliente ocasional solo aplican para venta mostrador',
+      );
     }
 
     const owner = dto.ownerId
@@ -384,6 +415,15 @@ export class PaymentsService {
               petId: pet?.id ?? null,
               appointmentId: dto.appointmentId ?? null,
               createdById: actorId,
+              walkInCustomerName: isWalkInSale
+                ? this.optionalText(dto.walkInCustomerName)
+                : null,
+              walkInCustomerPhone: isWalkInSale
+                ? this.optionalText(dto.walkInCustomerPhone)
+                : null,
+              walkInCustomerDocument: isWalkInSale
+                ? this.optionalText(dto.walkInCustomerDocument)
+                : null,
               invoiceNumber,
               reference: this.optionalText(dto.reference),
               description,
@@ -456,6 +496,9 @@ export class PaymentsService {
               changes: {
                 invoiceNumber,
                 ownerId: owner.id,
+                walkInCustomerName: isWalkInSale
+                  ? this.optionalText(dto.walkInCustomerName)
+                  : null,
                 petId: pet?.id ?? null,
                 total,
                 initialAmount,

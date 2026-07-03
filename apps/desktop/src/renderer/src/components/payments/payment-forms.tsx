@@ -37,6 +37,9 @@ export interface PaymentLineForm {
 
 export interface PaymentFormState {
   walkInSale: boolean;
+  walkInCustomerName: string;
+  walkInCustomerPhone: string;
+  walkInCustomerDocument: string;
   ownerId: string;
   petId: string;
   appointmentId: string;
@@ -166,6 +169,9 @@ export function PaymentFormModal({
     : undefined;
   const [form, setForm] = useState<PaymentFormState>(() => ({
     walkInSale: false,
+    walkInCustomerName: '',
+    walkInCustomerPhone: '',
+    walkInCustomerDocument: '',
     ownerId: initialAppointment?.ownerId ?? '',
     petId: initialAppointment?.petId ?? '',
     appointmentId: initialAppointment?.id ?? '',
@@ -228,6 +234,10 @@ export function PaymentFormModal({
     setError(null);
     if (!form.walkInSale && !form.ownerId) {
       setError('Selecciona el cliente responsable.');
+      return;
+    }
+    if (form.walkInSale && !form.walkInCustomerName.trim()) {
+      setError('Ingresa el nombre del cliente ocasional.');
       return;
     }
     if (form.walkInSale && form.items.some((item) => item.type !== 'PRODUCT')) {
@@ -317,6 +327,15 @@ export function PaymentFormModal({
                   setForm((current) => ({
                     ...current,
                     walkInSale: checked,
+                    walkInCustomerName: checked
+                      ? current.walkInCustomerName
+                      : '',
+                    walkInCustomerPhone: checked
+                      ? current.walkInCustomerPhone
+                      : '',
+                    walkInCustomerDocument: checked
+                      ? current.walkInCustomerDocument
+                      : '',
                     ownerId: checked ? '' : current.ownerId,
                     petId: '',
                     appointmentId: '',
@@ -329,16 +348,56 @@ export function PaymentFormModal({
               />
               <span>
                 <span className="block text-sm font-black text-slate-900">
-                  Venta mostrador / consumidor final
+                  Cliente ocasional / venta mostrador
                 </span>
                 <span className="mt-1 block text-xs leading-5 text-slate-500">
-                  Usar para productos vendidos al momento sin registrar un cliente real. Se guarda como pagado y descuenta inventario.
+                  Usar para productos vendidos al momento sin registrar un dueÃ±o real. Puedes guardar el nombre del comprador, se registra pagado y descuenta inventario.
                 </span>
               </span>
             </label>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          {form.walkInSale && (
+            <div className="mb-4 grid grid-cols-3 gap-4">
+              <ClinicalField label="Nombre del comprador">
+                <input
+                  required
+                  value={form.walkInCustomerName}
+                  onChange={(event) =>
+                    update('walkInCustomerName', event.target.value)
+                  }
+                  placeholder="Ej. Carlos Mendez"
+                  className={clinicalInputClass}
+                />
+              </ClinicalField>
+              <ClinicalField label="Telefono" optional>
+                <input
+                  value={form.walkInCustomerPhone}
+                  onChange={(event) =>
+                    update('walkInCustomerPhone', event.target.value)
+                  }
+                  placeholder="Opcional"
+                  className={clinicalInputClass}
+                />
+              </ClinicalField>
+              <ClinicalField label="Cedula / documento" optional>
+                <input
+                  value={form.walkInCustomerDocument}
+                  onChange={(event) =>
+                    update('walkInCustomerDocument', event.target.value)
+                  }
+                  placeholder="Opcional"
+                  className={clinicalInputClass}
+                />
+              </ClinicalField>
+            </div>
+          )}
+
+          <div
+            className={
+              form.walkInSale ? 'hidden' : 'grid grid-cols-3 gap-4'
+            }
+          >
             <ClinicalField label="Cliente responsable">
               <select
                 required={!form.walkInSale}

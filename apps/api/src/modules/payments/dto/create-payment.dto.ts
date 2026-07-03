@@ -19,6 +19,21 @@ export class CreatePaymentDto {
   ownerId?: string;
 
   @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  walkInCustomerName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  walkInCustomerPhone?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  walkInCustomerDocument?: string;
+
+  @IsOptional()
   @IsUUID()
   petId?: string;
 

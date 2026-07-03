@@ -326,6 +326,15 @@ export function PaymentsPage({
         method: 'POST',
         body: {
           ownerId: optional(form.ownerId),
+          walkInCustomerName: form.walkInSale
+            ? optional(form.walkInCustomerName)
+            : undefined,
+          walkInCustomerPhone: form.walkInSale
+            ? optional(form.walkInCustomerPhone)
+            : undefined,
+          walkInCustomerDocument: form.walkInSale
+            ? optional(form.walkInCustomerDocument)
+            : undefined,
           petId: optional(form.petId),
           appointmentId: optional(form.appointmentId),
           reference: optional(form.reference),
@@ -626,6 +635,15 @@ function PaymentsTable({
         <tbody>
           {payments.map((payment) => {
             const status = statusPresentation[payment.status];
+            const customerName =
+              payment.walkInCustomerName ||
+              `${payment.owner.firstName} ${payment.owner.lastName}`;
+            const customerContact =
+              payment.walkInCustomerName
+                ? payment.walkInCustomerPhone ||
+                  payment.walkInCustomerDocument ||
+                  'Sin contacto'
+                : payment.pet?.name || payment.owner.phone;
             const overdue =
               payment.dueAt &&
               payment.status !== 'PAID' &&
@@ -658,10 +676,10 @@ function PaymentsTable({
                 </td>
                 <td className="px-4 py-4">
                   <p className="font-semibold text-slate-700">
-                    {payment.owner.firstName} {payment.owner.lastName}
+                    {customerName}
                   </p>
                   <p className="mt-0.5 text-[11px] text-slate-400">
-                    {payment.pet?.name || payment.owner.phone}
+                    {customerContact}
                   </p>
                 </td>
                 <td className="max-w-[280px] px-4 py-4">
@@ -729,6 +747,13 @@ function PaymentDetailModal({
 }) {
   const status = statusPresentation[payment.status];
   const StatusIcon = status.icon;
+  const customerName =
+    payment.walkInCustomerName ||
+    `${payment.owner.firstName} ${payment.owner.lastName}`;
+  const customerContact =
+    payment.walkInCustomerName
+      ? payment.walkInCustomerPhone || 'Sin telefono'
+      : payment.owner.phone;
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-6 backdrop-blur-sm">
       <Card className="max-h-[94vh] w-full max-w-6xl overflow-y-auto">
@@ -935,13 +960,20 @@ function PaymentDetailModal({
               <DetailRow
                 icon={UserRound}
                 label="Responsable"
-                value={`${payment.owner.firstName} ${payment.owner.lastName}`}
+                value={customerName}
               />
               <DetailRow
                 icon={CreditCard}
                 label="Contacto"
-                value={payment.owner.phone}
+                value={customerContact}
               />
+              {payment.walkInCustomerDocument && (
+                <DetailRow
+                  icon={FileText}
+                  label="Documento"
+                  value={payment.walkInCustomerDocument}
+                />
+              )}
               {payment.pet && (
                 <DetailRow
                   icon={PawPrint}

@@ -561,6 +561,9 @@ model Payment {
   petId          String?       @db.Uuid
   appointmentId  String?       @db.Uuid
   createdById    String        @db.Uuid
+  walkInCustomerName     String?       @db.VarChar(120)
+  walkInCustomerPhone    String?       @db.VarChar(30)
+  walkInCustomerDocument String?       @db.VarChar(30)
   invoiceNumber  String        @unique @db.VarChar(50)
   reference      String?       @unique @db.VarChar(80)
   description    String        @db.VarChar(255)

@@ -562,6 +562,9 @@ export interface Payment {
   petId: string | null;
   appointmentId: string | null;
   createdById: string;
+  walkInCustomerName: string | null;
+  walkInCustomerPhone: string | null;
+  walkInCustomerDocument: string | null;
   invoiceNumber: string;
   reference: string | null;
   description: string;
