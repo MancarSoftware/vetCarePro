@@ -15,14 +15,18 @@ import type {
 import { format } from 'date-fns';
 import {
   CircleDollarSign,
+  CheckCircle2,
   LoaderCircle,
   PackagePlus,
   Plus,
   ReceiptText,
   Save,
+  ShoppingBag,
   Trash2,
+  UserRound,
   Wrench,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useMemo, useState, type FormEvent } from 'react';
 
 export interface PaymentLineForm {
@@ -122,6 +126,49 @@ function roundMoney(value: number) {
   return Math.round(value * 100) / 100;
 }
 
+function PaymentModeButton({
+  active,
+  icon: Icon,
+  title,
+  description,
+  onClick,
+}: {
+  active: boolean;
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex items-start gap-3 rounded-xl border p-4 text-left transition ${
+        active
+          ? 'border-teal-300 bg-white shadow-sm shadow-teal-900/5 ring-2 ring-teal-100'
+          : 'border-transparent bg-transparent hover:bg-white/70'
+      }`}
+    >
+      <span
+        className={`grid size-11 shrink-0 place-items-center rounded-xl ${
+          active ? 'bg-teal-50 text-teal-700' : 'bg-white text-slate-500'
+        }`}
+      >
+        <Icon className="size-5" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-2 text-sm font-black text-slate-900">
+          {title}
+          {active && <CheckCircle2 className="size-4 text-teal-600" />}
+        </span>
+        <span className="mt-1 block text-xs leading-5 text-slate-500">
+          {description}
+        </span>
+      </span>
+    </button>
+  );
+}
+
 function newLine(type: PaymentItemType): PaymentLineForm {
   return {
     key: crypto.randomUUID(),
@@ -202,6 +249,26 @@ export function PaymentFormModal({
     field: K,
     value: PaymentFormState[K],
   ) => setForm((current) => ({ ...current, [field]: value }));
+
+  const setWalkInSaleMode = (enabled: boolean) => {
+    setForm((current) => ({
+      ...current,
+      walkInSale: enabled,
+      walkInCustomerName: enabled ? current.walkInCustomerName : '',
+      walkInCustomerPhone: enabled ? current.walkInCustomerPhone : '',
+      walkInCustomerDocument: enabled ? current.walkInCustomerDocument : '',
+      ownerId: enabled ? '' : current.ownerId,
+      petId: enabled ? '' : current.petId,
+      appointmentId: enabled ? '' : current.appointmentId,
+      dueAt: enabled ? '' : current.dueAt,
+      items: enabled
+        ? current.items.some((item) => item.type === 'PRODUCT')
+          ? current.items.filter((item) => item.type === 'PRODUCT')
+          : [newLine('PRODUCT')]
+        : current.items,
+      initialAmount: enabled ? '' : current.initialAmount,
+    }));
+  };
 
   const updateLine = (
     key: string,
@@ -317,79 +384,72 @@ export function PaymentFormModal({
             </p>
           )}
 
-          <div className="mb-5 rounded-2xl border border-teal-100 bg-teal-50/70 p-4">
-            <label className="flex cursor-pointer items-start gap-3">
-              <input
-                type="checkbox"
-                checked={form.walkInSale}
-                onChange={(event) => {
-                  const checked = event.target.checked;
-                  setForm((current) => ({
-                    ...current,
-                    walkInSale: checked,
-                    walkInCustomerName: checked
-                      ? current.walkInCustomerName
-                      : '',
-                    walkInCustomerPhone: checked
-                      ? current.walkInCustomerPhone
-                      : '',
-                    walkInCustomerDocument: checked
-                      ? current.walkInCustomerDocument
-                      : '',
-                    ownerId: checked ? '' : current.ownerId,
-                    petId: '',
-                    appointmentId: '',
-                    dueAt: checked ? '' : current.dueAt,
-                    items: checked ? [newLine('PRODUCT')] : current.items,
-                    initialAmount: checked ? '' : current.initialAmount,
-                  }));
-                }}
-                className="mt-1 size-4 accent-teal-600"
-              />
-              <span>
-                <span className="block text-sm font-black text-slate-900">
-                  Cliente ocasional / venta mostrador
-                </span>
-                <span className="mt-1 block text-xs leading-5 text-slate-500">
-                  Usar para productos vendidos al momento sin registrar un dueÃ±o real. Puedes guardar el nombre del comprador, se registra pagado y descuenta inventario.
-                </span>
-              </span>
-            </label>
+          <div className="mb-5 grid grid-cols-2 gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-2">
+            <PaymentModeButton
+              active={!form.walkInSale}
+              icon={UserRound}
+              title="Cliente registrado"
+              description="Cobra a un dueno existente y permite asociar mascota o cita."
+              onClick={() => setWalkInSaleMode(false)}
+            />
+            <PaymentModeButton
+              active={form.walkInSale}
+              icon={ShoppingBag}
+              title="Cliente ocasional"
+              description="Venta rapida de productos sin crear ficha de cliente."
+              onClick={() => setWalkInSaleMode(true)}
+            />
           </div>
 
           {form.walkInSale && (
-            <div className="mb-4 grid grid-cols-3 gap-4">
-              <ClinicalField label="Nombre del comprador">
-                <input
-                  required
-                  value={form.walkInCustomerName}
-                  onChange={(event) =>
-                    update('walkInCustomerName', event.target.value)
-                  }
-                  placeholder="Ej. Carlos Mendez"
-                  className={clinicalInputClass}
-                />
-              </ClinicalField>
-              <ClinicalField label="Telefono" optional>
-                <input
-                  value={form.walkInCustomerPhone}
-                  onChange={(event) =>
-                    update('walkInCustomerPhone', event.target.value)
-                  }
-                  placeholder="Opcional"
-                  className={clinicalInputClass}
-                />
-              </ClinicalField>
-              <ClinicalField label="Cedula / documento" optional>
-                <input
-                  value={form.walkInCustomerDocument}
-                  onChange={(event) =>
-                    update('walkInCustomerDocument', event.target.value)
-                  }
-                  placeholder="Opcional"
-                  className={clinicalInputClass}
-                />
-              </ClinicalField>
+            <div className="mb-4 rounded-2xl border border-teal-100 bg-teal-50/60 p-4">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="grid size-10 place-items-center rounded-xl bg-white text-teal-700 shadow-sm">
+                  <ShoppingBag className="size-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-black text-slate-900">
+                    Datos del comprador ocasional
+                  </p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    No se crea una ficha de cliente; estos datos quedan solo en
+                    el documento de cobro.
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <ClinicalField label="Nombre del comprador">
+                  <input
+                    required
+                    value={form.walkInCustomerName}
+                    onChange={(event) =>
+                      update('walkInCustomerName', event.target.value)
+                    }
+                    placeholder="Ej. Carlos Mendez"
+                    className={clinicalInputClass}
+                  />
+                </ClinicalField>
+                <ClinicalField label="Telefono" optional>
+                  <input
+                    value={form.walkInCustomerPhone}
+                    onChange={(event) =>
+                      update('walkInCustomerPhone', event.target.value)
+                    }
+                    placeholder="Opcional"
+                    className={clinicalInputClass}
+                  />
+                </ClinicalField>
+                <ClinicalField label="Cedula / documento" optional>
+                  <input
+                    value={form.walkInCustomerDocument}
+                    onChange={(event) =>
+                      update('walkInCustomerDocument', event.target.value)
+                    }
+                    placeholder="Opcional"
+                    className={clinicalInputClass}
+                  />
+                </ClinicalField>
+              </div>
             </div>
           )}
 
@@ -502,20 +562,23 @@ export function PaymentFormModal({
                   Conceptos del documento
                 </p>
                 <p className="mt-0.5 text-xs text-slate-400">
-                  Servicios, productos y otros cargos.
+                  {form.walkInSale
+                    ? 'Productos vendidos en mostrador.'
+                    : 'Servicios, productos y otros cargos.'}
                 </p>
               </div>
               <div className="flex gap-2">
-                <Button
-                  disabled={form.walkInSale}
-                  onClick={() =>
-                    update('items', [...form.items, newLine('SERVICE')])
-                  }
-                  className="border border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
-                >
-                  <Wrench className="size-4" />
-                  Servicio
-                </Button>
+                {!form.walkInSale && (
+                  <Button
+                    onClick={() =>
+                      update('items', [...form.items, newLine('SERVICE')])
+                    }
+                    className="border border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
+                  >
+                    <Wrench className="size-4" />
+                    Servicio
+                  </Button>
+                )}
                 <Button
                   onClick={() =>
                     update('items', [...form.items, newLine('PRODUCT')])
@@ -695,14 +758,31 @@ export function PaymentFormModal({
 
           <div className="mt-5 grid grid-cols-[1fr_380px] gap-5">
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <ClinicalField label="Referencia externa" optional>
+              <div
+                className={
+                  form.walkInSale
+                    ? 'grid grid-cols-1 gap-4 [&>label:nth-child(2)]:hidden'
+                    : 'grid grid-cols-2 gap-4'
+                }
+              >
+                <ClinicalField
+                  label={
+                    form.walkInSale
+                      ? 'Referencia de venta'
+                      : 'Referencia externa'
+                  }
+                  optional
+                >
                   <input
                     value={form.reference}
                     onChange={(event) =>
                       update('reference', event.target.value)
                     }
-                    placeholder="Orden, convenio..."
+                    placeholder={
+                      form.walkInSale
+                        ? 'Ticket, nota, convenio...'
+                        : 'Orden, convenio...'
+                    }
                     className={clinicalInputClass}
                   />
                 </ClinicalField>
@@ -741,11 +821,13 @@ export function PaymentFormModal({
                 </div>
               </div>
               <p className="mt-4 text-xs font-bold uppercase tracking-wider text-teal-300">
-                {form.walkInSale ? 'Pago de venta mostrador' : 'Pago inicial opcional'}
+                {form.walkInSale
+                  ? 'Pago inmediato de venta mostrador'
+                  : 'Pago inicial opcional'}
               </p>
               {form.walkInSale && (
                 <p className="mt-2 text-xs leading-5 text-slate-400">
-                  Se registrara pagada por el total del documento.
+                  Se registra como pagado por el total del documento.
                 </p>
               )}
               <div className="mt-3 grid grid-cols-2 gap-3">
@@ -763,7 +845,7 @@ export function PaymentFormModal({
                   onChange={(event) =>
                     update('initialAmount', event.target.value)
                   }
-                  placeholder="Monto"
+                  placeholder={form.walkInSale ? 'Monto total' : 'Monto'}
                   className="h-10 rounded-xl border border-white/10 bg-white/10 px-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-teal-400"
                 />
                 <select
