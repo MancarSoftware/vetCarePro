@@ -254,6 +254,13 @@ export function InventoryPage() {
     const optional = (value: string) => value.trim() || null;
     const optionalNumber = (value: string) =>
       value.trim() ? Number(value) : null;
+    const initialStock = Number(form.initialStock || 0);
+    const purchasePrice =
+      !editingProduct &&
+      form.purchaseCostMode === 'LOT' &&
+      form.lotTotalCost.trim()
+        ? roundMoney(Number(form.lotTotalCost) / initialStock)
+        : optionalNumber(form.purchasePrice);
     try {
       await request(
         editingProduct
@@ -267,12 +274,12 @@ export function InventoryPage() {
             category: form.category.trim(),
             unit: form.unit.trim(),
             minimumStock: Number(form.minimumStock),
-            purchasePrice: optionalNumber(form.purchasePrice),
+            purchasePrice,
             salePrice: optionalNumber(form.salePrice),
             supplier: optional(form.supplier),
             ...(!editingProduct
               ? {
-                  initialStock: Number(form.initialStock || 0),
+                  initialStock,
                   batchNumber: optional(form.batchNumber),
                   expirationDate: form.expirationDate || undefined,
                   notes: optional(form.notes),
@@ -293,6 +300,13 @@ export function InventoryPage() {
     if (!movementProduct) return;
     setIsSubmitting(true);
     const optional = (value: string) => value.trim() || null;
+    const quantity = Number(form.quantity);
+    const unitCost =
+      form.costMode === 'LOT' && form.totalCost.trim()
+        ? roundMoney(Number(form.totalCost) / quantity)
+        : form.unitCost
+          ? Number(form.unitCost)
+          : undefined;
     try {
       const updated = await request<InventoryProduct>(
         `/inventory/products/${movementProduct.id}/movements`,
@@ -300,8 +314,8 @@ export function InventoryPage() {
           method: 'POST',
           body: {
             type: form.type,
-            quantity: Number(form.quantity),
-            unitCost: form.unitCost ? Number(form.unitCost) : undefined,
+            quantity,
+            unitCost,
             batchId: form.batchId || undefined,
             batchNumber: optional(form.batchNumber),
             expirationDate: form.expirationDate || undefined,
@@ -1237,4 +1251,8 @@ function InventoryEmpty({
 
 function localDateOnly(value: string) {
   return new Date(`${value.slice(0, 10)}T12:00:00`);
+}
+
+function roundMoney(value: number) {
+  return Math.round(value * 100) / 100;
 }
