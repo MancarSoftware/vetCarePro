@@ -25,7 +25,9 @@ export interface InventoryProductFormState {
   category: string;
   unit: string;
   minimumStock: string;
+  purchaseCostMode: 'UNIT' | 'LOT';
   purchasePrice: string;
+  lotTotalCost: string;
   salePrice: string;
   supplier: string;
   initialStock: string;
@@ -37,7 +39,9 @@ export interface InventoryProductFormState {
 export interface InventoryMovementFormState {
   type: InventoryMovementType;
   quantity: string;
+  costMode: 'UNIT' | 'LOT';
   unitCost: string;
+  totalCost: string;
   batchId: string;
   batchNumber: string;
   expirationDate: string;
@@ -52,7 +56,9 @@ const defaultProductForm: InventoryProductFormState = {
   category: 'Medicamentos',
   unit: 'unidad',
   minimumStock: '0',
+  purchaseCostMode: 'UNIT',
   purchasePrice: '',
+  lotTotalCost: '',
   salePrice: '',
   supplier: '',
   initialStock: '0',
@@ -77,6 +83,29 @@ const inboundTypes = new Set<InventoryMovementType>([
   'RETURN',
 ]);
 
+const categoryOptions = [
+  'Medicamentos',
+  'Vacunas',
+  'Desparasitantes',
+  'Alimentos',
+  'Accesorios',
+  'Insumos medicos',
+  'Higiene / Peluqueria',
+  'Otros',
+];
+
+const unitOptions = [
+  'unidad',
+  'frasco',
+  'caja',
+  'dosis',
+  'tableta',
+  'ml',
+  'kg',
+  'saco',
+  'paquete',
+];
+
 export function InventoryProductFormModal({
   product,
   categories,
@@ -98,7 +127,9 @@ export function InventoryProductFormModal({
           category: product.category,
           unit: product.unit,
           minimumStock: product.minimumStock.toString(),
+          purchaseCostMode: 'UNIT',
           purchasePrice: product.purchasePrice?.toString() ?? '',
+          lotTotalCost: '',
           salePrice: product.salePrice?.toString() ?? '',
           supplier: product.supplier ?? '',
           initialStock: '0',
@@ -109,6 +140,20 @@ export function InventoryProductFormModal({
       : defaultProductForm,
   );
   const [error, setError] = useState<string | null>(null);
+  const uniqueCategories = uniqueOptions([...categoryOptions, ...categories]);
+  const uniqueUnits = uniqueOptions([
+    ...unitOptions,
+    ...(product?.unit ? [product.unit] : []),
+  ]);
+  const initialStock = Number(form.initialStock || 0);
+  const lotTotalCost = Number(form.lotTotalCost || 0);
+  const calculatedLotUnitCost =
+    !product &&
+    form.purchaseCostMode === 'LOT' &&
+    initialStock > 0 &&
+    lotTotalCost > 0
+      ? roundMoney(lotTotalCost / initialStock)
+      : null;
 
   const update = (field: keyof InventoryProductFormState, value: string) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -123,6 +168,17 @@ export function InventoryProductFormModal({
     }
     if (Number(form.minimumStock) < 0 || Number(form.initialStock) < 0) {
       setError('Las existencias no pueden ser negativas.');
+      return;
+    }
+    if (
+      !product &&
+      form.purchaseCostMode === 'LOT' &&
+      Number(form.lotTotalCost || 0) > 0 &&
+      Number(form.initialStock || 0) <= 0
+    ) {
+      setError(
+        'Para usar costo total de lote debes ingresar una cantidad inicial mayor que cero.',
+      );
       return;
     }
     try {
@@ -169,37 +225,32 @@ export function InventoryProductFormModal({
               />
             </ClinicalField>
             <ClinicalField label="Categoría">
-              <input
+              <select
                 required
-                list="inventory-categories"
                 value={form.category}
                 onChange={(event) => update('category', event.target.value)}
-                placeholder="Medicamentos"
                 className={clinicalInputClass}
-              />
-              <datalist id="inventory-categories">
-                {[
-                  'Medicamentos',
-                  'Vacunas',
-                  'Alimentos',
-                  'Insumos médicos',
-                  'Antipulgas',
-                  'Desparasitantes',
-                  'Accesorios',
-                  ...categories,
-                ].map((category) => (
-                  <option key={category} value={category} />
+              >
+                {uniqueCategories.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
                 ))}
-              </datalist>
+              </select>
             </ClinicalField>
             <ClinicalField label="Unidad de medida">
-              <input
+              <select
                 required
                 value={form.unit}
                 onChange={(event) => update('unit', event.target.value)}
-                placeholder="unidad, dosis, frasco..."
                 className={clinicalInputClass}
-              />
+              >
+                {uniqueUnits.map((unit) => (
+                  <option key={unit} value={unit}>
+                    {unit}
+                  </option>
+                ))}
+              </select>
             </ClinicalField>
             <ClinicalField label="Stock mínimo">
               <input
@@ -222,14 +273,47 @@ export function InventoryProductFormModal({
                 className={clinicalInputClass}
               />
             </ClinicalField>
-            <ClinicalField label="Precio de compra" optional>
+            {!product && (
+              <ClinicalField label="Forma de costo de compra">
+                <select
+                  value={form.purchaseCostMode}
+                  onChange={(event) =>
+                    update(
+                      'purchaseCostMode',
+                      event.target.value as 'UNIT' | 'LOT',
+                    )
+                  }
+                  className={clinicalInputClass}
+                >
+                  <option value="UNIT">Costo por unidad</option>
+                  <option value="LOT">Costo total del lote</option>
+                </select>
+              </ClinicalField>
+            )}
+            <ClinicalField
+              label={
+                !product && form.purchaseCostMode === 'LOT'
+                  ? 'Costo total del lote'
+                  : 'Costo de compra unitario'
+              }
+              optional
+            >
               <input
                 type="number"
                 min="0"
                 step="0.01"
-                value={form.purchasePrice}
+                value={
+                  !product && form.purchaseCostMode === 'LOT'
+                    ? form.lotTotalCost
+                    : form.purchasePrice
+                }
                 onChange={(event) =>
-                  update('purchasePrice', event.target.value)
+                  update(
+                    !product && form.purchaseCostMode === 'LOT'
+                      ? 'lotTotalCost'
+                      : 'purchasePrice',
+                    event.target.value,
+                  )
                 }
                 placeholder="0.00"
                 className={clinicalInputClass}
@@ -265,7 +349,7 @@ export function InventoryProductFormModal({
                   </p>
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-4 gap-4">
                 <ClinicalField label="Cantidad inicial">
                   <input
                     type="number"
@@ -278,6 +362,20 @@ export function InventoryProductFormModal({
                     className={clinicalInputClass}
                   />
                 </ClinicalField>
+                {form.purchaseCostMode === 'LOT' && (
+                  <ClinicalField label="Costo unitario calculado" optional>
+                    <input
+                      readOnly
+                      value={
+                        calculatedLotUnitCost !== null
+                          ? calculatedLotUnitCost.toFixed(2)
+                          : ''
+                      }
+                      placeholder="Costo / cantidad"
+                      className={`${clinicalInputClass} bg-slate-50 text-slate-500`}
+                    />
+                  </ClinicalField>
+                )}
                 <ClinicalField label="Número de lote" optional>
                   <input
                     value={form.batchNumber}
@@ -353,7 +451,9 @@ export function InventoryMovementFormModal({
   const [form, setForm] = useState<InventoryMovementFormState>({
     type: 'PURCHASE',
     quantity: '',
+    costMode: 'UNIT',
     unitCost: product.purchasePrice?.toString() ?? '',
+    totalCost: '',
     batchId: '',
     batchNumber: '',
     expirationDate: '',
@@ -366,6 +466,15 @@ export function InventoryMovementFormModal({
   const availableBatches = product.batches.filter(
     (batch) => batch.currentQuantity > 0,
   );
+  const movementQuantity = Number(form.quantity || 0);
+  const movementTotalCost = Number(form.totalCost || 0);
+  const calculatedMovementUnitCost =
+    inbound &&
+    form.costMode === 'LOT' &&
+    movementQuantity > 0 &&
+    movementTotalCost > 0
+      ? roundMoney(movementTotalCost / movementQuantity)
+      : null;
 
   useEffect(() => {
     if (inbound) {
@@ -375,6 +484,8 @@ export function InventoryMovementFormModal({
         ...current,
         batchNumber: '',
         expirationDate: '',
+        costMode: 'UNIT',
+        totalCost: '',
       }));
     }
   }, [inbound]);
@@ -394,6 +505,17 @@ export function InventoryMovementFormModal({
     if (!inbound && quantity > product.currentStock) {
       setError(
         `La cantidad supera el stock disponible de ${product.currentStock} ${product.unit}.`,
+      );
+      return;
+    }
+    if (
+      inbound &&
+      form.costMode === 'LOT' &&
+      Number(form.totalCost || 0) > 0 &&
+      quantity <= 0
+    ) {
+      setError(
+        'Para usar costo total de lote debes ingresar una cantidad mayor que cero.',
       );
       return;
     }
@@ -464,19 +586,57 @@ export function InventoryMovementFormModal({
           </div>
 
           {inbound ? (
-            <div className="mt-4 grid grid-cols-3 gap-4">
-              <ClinicalField label="Costo unitario" optional>
+            <div className="mt-4 grid grid-cols-4 gap-4">
+              <ClinicalField label="Forma de costo">
+                <select
+                  value={form.costMode}
+                  onChange={(event) =>
+                    update('costMode', event.target.value as 'UNIT' | 'LOT')
+                  }
+                  className={clinicalInputClass}
+                >
+                  <option value="UNIT">Costo por unidad</option>
+                  <option value="LOT">Costo total del lote</option>
+                </select>
+              </ClinicalField>
+              <ClinicalField
+                label={
+                  form.costMode === 'LOT'
+                    ? 'Costo total del lote'
+                    : 'Costo unitario'
+                }
+                optional
+              >
                 <input
                   type="number"
                   min="0"
                   step="0.01"
-                  value={form.unitCost}
+                  value={
+                    form.costMode === 'LOT' ? form.totalCost : form.unitCost
+                  }
                   onChange={(event) =>
-                    update('unitCost', event.target.value)
+                    update(
+                      form.costMode === 'LOT' ? 'totalCost' : 'unitCost',
+                      event.target.value,
+                    )
                   }
                   className={clinicalInputClass}
                 />
               </ClinicalField>
+              {form.costMode === 'LOT' && (
+                <ClinicalField label="Costo unitario calculado" optional>
+                  <input
+                    readOnly
+                    value={
+                      calculatedMovementUnitCost !== null
+                        ? calculatedMovementUnitCost.toFixed(2)
+                        : ''
+                    }
+                    placeholder="Costo / cantidad"
+                    className={`${clinicalInputClass} bg-slate-50 text-slate-500`}
+                  />
+                </ClinicalField>
+              )}
               <ClinicalField label="Número de lote" optional>
                 <input
                   value={form.batchNumber}
@@ -603,4 +763,14 @@ function formatDateOnly(value: string) {
   return new Intl.DateTimeFormat('es-EC').format(
     new Date(year, month - 1, day),
   );
+}
+
+function uniqueOptions(values: string[]) {
+  return Array.from(
+    new Set(values.map((value) => value.trim()).filter(Boolean)),
+  );
+}
+
+function roundMoney(value: number) {
+  return Math.round(value * 100) / 100;
 }

@@ -23,6 +23,17 @@ const activeBatchWhere = {
   currentQuantity: { gt: 0 },
 } satisfies Prisma.InventoryBatchWhereInput;
 
+const defaultInventoryCategories = [
+  'Medicamentos',
+  'Vacunas',
+  'Desparasitantes',
+  'Alimentos',
+  'Accesorios',
+  'Insumos medicos',
+  'Higiene / Peluqueria',
+  'Otros',
+];
+
 const productListInclude = {
   batches: {
     where: activeBatchWhere,
@@ -193,7 +204,12 @@ export class InventoryService {
       orderBy: { category: 'asc' },
       select: { category: true },
     });
-    return products.map(({ category }) => category);
+    return [
+      ...new Set([
+        ...defaultInventoryCategories,
+        ...products.map(({ category }) => category),
+      ]),
+    ].sort((a, b) => a.localeCompare(b, 'es'));
   }
 
   async findMovements(query: InventoryMovementsQueryDto) {
