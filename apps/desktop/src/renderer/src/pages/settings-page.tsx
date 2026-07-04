@@ -31,6 +31,7 @@ import {
   Settings2,
   ShieldCheck,
   Stethoscope,
+  Wand2,
   X,
 } from 'lucide-react';
 import {
@@ -42,6 +43,7 @@ import {
 const emptyClinic: ClinicSettings = {
   name: '',
   legalName: '',
+  taxIdType: 'RUC',
   taxId: '',
   phone: '',
   email: '',
@@ -148,12 +150,38 @@ export function SettingsPage() {
     }));
   };
 
+  const loadSriDemoData = () => {
+    setClinic((current) => ({
+      ...current,
+      name: current.name || 'VetCare Pro Demo',
+      legalName: 'Clinica Veterinaria Demo VetCare',
+      taxIdType: 'RUC',
+      taxId: '0912345675001',
+      address: current.address || 'Av. Principal 123 y Calle Central',
+      city: current.city || 'Guayaquil',
+      country: current.country || 'Ecuador',
+      sri: {
+        ...current.sri,
+        enabled: true,
+        environment: 'TEST',
+        establishmentCode: '001',
+        emissionPoint: '001',
+        sequential: Math.max(1, current.sri.sequential || 1),
+        digitalSignaturePath:
+          current.sri.digitalSignaturePath ||
+          'C:/VetCarePro/certificados/firma-demo.p12',
+        digitalSignatureConfigured: true,
+        accountingRequired: false,
+      },
+    }));
+  };
+
   const saveSettings = async () => {
     setIsSaving(true);
     try {
       const updated = await request<AppSettings>('/settings', {
         method: 'PATCH',
-        body: { clinic, preferences },
+        body: { clinic: settingsClinicPayload(clinic), preferences },
       });
       setSettings(updated);
       setClinic(updated.clinic);
@@ -301,13 +329,45 @@ export function SettingsPage() {
                   placeholder="Clinica Veterinaria VetCare"
                 />
               </ClinicalField>
-              <ClinicalField label="RUC / identificacion" optional>
-                <input
-                  value={clinic.taxId}
-                  onChange={(event) => updateClinic('taxId', event.target.value)}
+              <ClinicalField label="Tipo de identificacion">
+                <select
+                  value={clinic.taxIdType}
+                  onChange={(event) => {
+                    const nextType = event.target
+                      .value as ClinicSettings['taxIdType'];
+                    updateClinic('taxIdType', nextType);
+                    updateClinic(
+                      'taxId',
+                      onlyDigits(clinic.taxId, nextType === 'RUC' ? 13 : 10),
+                    );
+                  }}
                   disabled={!canManage}
                   className={clinicalInputClass}
-                  placeholder="0999999999001"
+                >
+                  <option value="RUC">RUC</option>
+                  <option value="CEDULA">Cedula</option>
+                </select>
+              </ClinicalField>
+              <ClinicalField
+                label={clinic.taxIdType === 'RUC' ? 'RUC' : 'Cedula'}
+                optional
+              >
+                <input
+                  value={clinic.taxId}
+                  onChange={(event) =>
+                    updateClinic(
+                      'taxId',
+                      onlyDigits(
+                        event.target.value,
+                        clinic.taxIdType === 'RUC' ? 13 : 10,
+                      ),
+                    )
+                  }
+                  disabled={!canManage}
+                  className={clinicalInputClass}
+                  placeholder={clinic.taxIdType === 'RUC' ? '0912345675001' : '0912345675'}
+                  inputMode="numeric"
+                  maxLength={clinic.taxIdType === 'RUC' ? 13 : 10}
                 />
               </ClinicalField>
               <ClinicalField label="Telefono" optional>
@@ -535,15 +595,26 @@ export function SettingsPage() {
               title="Facturacion SRI Ecuador"
               description="Datos tributarios necesarios para generar XML, firmar y autorizar facturas electronicas."
             />
-            <Badge
-              className={
-                clinic.sri.enabled
-                  ? 'bg-emerald-50 text-emerald-700'
-                  : 'bg-amber-50 text-amber-700'
-              }
-            >
-              {clinic.sri.enabled ? 'SRI activado' : 'Pendiente de configurar'}
-            </Badge>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                onClick={loadSriDemoData}
+                disabled={!canManage || isLoading}
+                className="h-9 border border-teal-200 bg-white text-teal-700 hover:bg-teal-50"
+              >
+                <Wand2 className="size-4" />
+                Cargar datos demo
+              </Button>
+              <Badge
+                className={
+                  clinic.sri.enabled
+                    ? 'bg-emerald-50 text-emerald-700'
+                    : 'bg-amber-50 text-amber-700'
+                }
+              >
+                {clinic.sri.enabled ? 'SRI activado' : 'Pendiente de configurar'}
+              </Badge>
+            </div>
           </div>
 
           {isLoading ? (
@@ -703,7 +774,8 @@ export function SettingsPage() {
 
               <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-800 lg:col-span-3">
                 Para emitir una factura SRI, completa tambien en el perfil:
-                razon social, RUC de 13 digitos y direccion matriz. Esta version
+                razon social, tipo RUC, RUC de 13 digitos y direccion matriz.
+                El RUC demo para pruebas locales es 0912345675001. Esta version
                 ya bloquea la emision si falta informacion critica.
               </div>
             </div>
@@ -998,4 +1070,33 @@ function formatDate(value: string | null) {
 
 function onlyDigits(value: string, maxLength: number) {
   return value.replace(/\D/g, '').slice(0, maxLength);
+}
+
+function settingsClinicPayload(clinic: ClinicSettings): ClinicSettings {
+  return {
+    name: clinic.name,
+    legalName: clinic.legalName,
+    taxIdType: clinic.taxIdType,
+    taxId: clinic.taxId,
+    phone: clinic.phone,
+    email: clinic.email,
+    address: clinic.address,
+    city: clinic.city,
+    country: clinic.country,
+    website: clinic.website,
+    logoPath: clinic.logoPath,
+    notes: clinic.notes,
+    sri: {
+      enabled: clinic.sri.enabled,
+      environment: clinic.sri.environment,
+      emissionType: clinic.sri.emissionType,
+      establishmentCode: clinic.sri.establishmentCode,
+      emissionPoint: clinic.sri.emissionPoint,
+      sequential: clinic.sri.sequential,
+      specialTaxpayerNumber: clinic.sri.specialTaxpayerNumber,
+      accountingRequired: clinic.sri.accountingRequired,
+      digitalSignaturePath: clinic.sri.digitalSignaturePath,
+      digitalSignatureConfigured: clinic.sri.digitalSignatureConfigured,
+    },
+  };
 }

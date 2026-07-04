@@ -210,6 +210,7 @@ export class SriInvoicesService {
 
     if (!clinic.sri.enabled) missing.push('activar facturacion SRI');
     if (!clinic.legalName.trim()) missing.push('razon social');
+    if (clinic.taxIdType !== 'RUC') missing.push('tipo de identificacion RUC');
     if (!/^\d{13}$/.test(ruc)) missing.push('RUC de 13 digitos');
     if (!clinic.address.trim()) missing.push('direccion matriz');
     if (!/^\d{3}$/.test(clinic.sri.establishmentCode)) {

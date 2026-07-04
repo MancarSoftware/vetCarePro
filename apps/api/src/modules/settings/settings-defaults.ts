@@ -1,6 +1,7 @@
 export interface ClinicSettings {
   name: string;
   legalName: string;
+  taxIdType: 'RUC' | 'CEDULA';
   taxId: string;
   phone: string;
   email: string;
@@ -47,6 +48,7 @@ export const SYSTEM_PREFERENCES_KEY = 'system.preferences';
 export const defaultClinicSettings: ClinicSettings = {
   name: 'Clinica VetCare',
   legalName: '',
+  taxIdType: 'RUC',
   taxId: '',
   phone: '',
   email: '',
@@ -84,12 +86,41 @@ export const defaultSystemPreferences: SystemPreferences = {
 export function mergeClinicSettings(
   current: PartialClinicSettings | null | undefined,
 ): ClinicSettings {
+  const source = current ?? {};
+  const sri = source.sri ?? {};
+
   return {
-    ...defaultClinicSettings,
-    ...(current ?? {}),
+    name: source.name ?? defaultClinicSettings.name,
+    legalName: source.legalName ?? defaultClinicSettings.legalName,
+    taxIdType: source.taxIdType ?? defaultClinicSettings.taxIdType,
+    taxId: source.taxId ?? defaultClinicSettings.taxId,
+    phone: source.phone ?? defaultClinicSettings.phone,
+    email: source.email ?? defaultClinicSettings.email,
+    address: source.address ?? defaultClinicSettings.address,
+    city: source.city ?? defaultClinicSettings.city,
+    country: source.country ?? defaultClinicSettings.country,
+    website: source.website ?? defaultClinicSettings.website,
+    logoPath: source.logoPath ?? defaultClinicSettings.logoPath,
+    notes: source.notes ?? defaultClinicSettings.notes,
     sri: {
-      ...defaultClinicSettings.sri,
-      ...(current?.sri ?? {}),
+      enabled: sri.enabled ?? defaultClinicSettings.sri.enabled,
+      environment: sri.environment ?? defaultClinicSettings.sri.environment,
+      emissionType: sri.emissionType ?? defaultClinicSettings.sri.emissionType,
+      establishmentCode:
+        sri.establishmentCode ?? defaultClinicSettings.sri.establishmentCode,
+      emissionPoint: sri.emissionPoint ?? defaultClinicSettings.sri.emissionPoint,
+      sequential: sri.sequential ?? defaultClinicSettings.sri.sequential,
+      specialTaxpayerNumber:
+        sri.specialTaxpayerNumber ??
+        defaultClinicSettings.sri.specialTaxpayerNumber,
+      accountingRequired:
+        sri.accountingRequired ?? defaultClinicSettings.sri.accountingRequired,
+      digitalSignaturePath:
+        sri.digitalSignaturePath ??
+        defaultClinicSettings.sri.digitalSignaturePath,
+      digitalSignatureConfigured:
+        sri.digitalSignatureConfigured ??
+        defaultClinicSettings.sri.digitalSignatureConfigured,
     },
   };
 }

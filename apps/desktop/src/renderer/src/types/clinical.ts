@@ -772,6 +772,7 @@ export interface BackupSummary {
 export interface ClinicSettings {
   name: string;
   legalName: string;
+  taxIdType: 'RUC' | 'CEDULA';
   taxId: string;
   phone: string;
   email: string;

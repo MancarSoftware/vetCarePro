@@ -73,8 +73,12 @@ export class ClinicSettingsDto {
   legalName?: string;
 
   @IsOptional()
+  @IsIn(['RUC', 'CEDULA'])
+  taxIdType?: 'RUC' | 'CEDULA';
+
+  @IsOptional()
   @IsString()
-  @MaxLength(40)
+  @Matches(/^\d{0,13}$/)
   taxId?: string;
 
   @IsOptional()
