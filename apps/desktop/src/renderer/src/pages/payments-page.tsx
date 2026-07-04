@@ -1119,6 +1119,7 @@ function SriInvoiceAssistantModal({
     payment.owner.email ||
     (payment.walkInCustomerName ? 'Cliente ocasional sin correo' : 'Sin correo');
   const accessKey = sriInvoice?.accessKey ?? 'Se generará al crear el borrador';
+  const hasXml = Boolean(sriInvoice?.xmlPath);
   const steps = [
     {
       label: 'Validar datos tributarios',
@@ -1178,11 +1179,15 @@ function SriInvoiceAssistantModal({
     setIsWorking(true);
     setActionError(null);
     try {
-      const draft =
-        sriInvoice ??
-        (await request<SriInvoice>(`/sri-invoices/payment/${payment.id}`, {
-          method: 'POST',
-        }));
+      const draft = sriInvoice;
+      if (!draft) {
+        setActionError('Primero crea el borrador SRI.');
+        return;
+      }
+      if (!draft.xmlPath) {
+        setActionError('Primero genera el XML antes de simular la autorización.');
+        return;
+      }
       const authorized = await request<SriInvoice>(
         `/sri-invoices/${draft.id}/demo-authorize`,
         { method: 'POST' },
@@ -1193,6 +1198,28 @@ function SriInvoiceAssistantModal({
         error instanceof Error
           ? error.message
           : 'No fue posible simular la autorización SRI.',
+      );
+    } finally {
+      setIsWorking(false);
+    }
+  };
+
+  const generateXml = async () => {
+    setIsWorking(true);
+    setActionError(null);
+    try {
+      const draft = sriInvoice ?? (await createDraft());
+      if (!draft) return;
+      const generated = await request<SriInvoice>(
+        `/sri-invoices/${draft.id}/generate-xml`,
+        { method: 'POST' },
+      );
+      onInvoiceChange(generated);
+    } catch (error) {
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : 'No fue posible generar el XML de la factura.',
       );
     } finally {
       setIsWorking(false);
@@ -1303,6 +1330,11 @@ function SriInvoiceAssistantModal({
                       Autorización: {sriInvoice.authorizationNumber}
                     </p>
                   )}
+                  {sriInvoice?.xmlPath && (
+                    <p className="mt-3 break-all text-xs font-semibold text-teal-700">
+                      XML: {sriInvoice.xmlPath}
+                    </p>
+                  )}
                   {sriInvoice?.sriMessage && (
                     <p className="mt-2 text-xs leading-5 text-slate-500">
                       {sriInvoice.sriMessage}
@@ -1314,9 +1346,15 @@ function SriInvoiceAssistantModal({
             <div className="space-y-3">
               {steps.map((step, index) => {
                 const Icon = step.icon;
-                const completed = isAuthorized || (Boolean(sriInvoice) && index < 2);
+                const completed =
+                  isAuthorized ||
+                  (index === 0 && Boolean(sriInvoice)) ||
+                  (index === 1 && hasXml);
                 const active =
-                  !isAuthorized && (sriInvoice ? index === 2 : index === 0);
+                  !isAuthorized &&
+                  ((!sriInvoice && index === 0) ||
+                    (sriInvoice && !hasXml && index === 1) ||
+                    (hasXml && index === 2));
                 return (
                   <div
                     key={step.label}
@@ -1394,6 +1432,20 @@ function SriInvoiceAssistantModal({
                 Crear borrador SRI
               </Button>
             )}
+            {sriInvoice && !hasXml && (
+              <Button
+                onClick={() => void generateXml()}
+                disabled={isWorking}
+                className="border border-teal-200 bg-white text-teal-700 hover:bg-teal-50"
+              >
+                {isWorking ? (
+                  <LoaderCircle className="size-4 animate-spin" />
+                ) : (
+                  <FileText className="size-4" />
+                )}
+                Generar XML
+              </Button>
+            )}
             <Button
               disabled={!isAuthorized}
               className="border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
@@ -1403,7 +1455,7 @@ function SriInvoiceAssistantModal({
             </Button>
             <Button
               onClick={() => void authorizeDemo()}
-              disabled={isWorking || isAuthorized}
+              disabled={isWorking || isAuthorized || !hasXml}
               className="bg-teal-600 text-white hover:bg-teal-700"
             >
               {isWorking ? (

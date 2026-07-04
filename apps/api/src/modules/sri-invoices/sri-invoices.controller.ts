@@ -44,4 +44,10 @@ export class SriInvoicesController {
   demoAuthorize(@Param('id', ParseUUIDPipe) sriInvoiceId: string) {
     return this.sriInvoicesService.demoAuthorize(sriInvoiceId);
   }
+
+  @Post(':id/generate-xml')
+  @RequirePermissions(PERMISSIONS.PAYMENTS_MANAGE)
+  generateXml(@Param('id', ParseUUIDPipe) sriInvoiceId: string) {
+    return this.sriInvoicesService.generateXml(sriInvoiceId);
+  }
 }
