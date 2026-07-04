@@ -25,6 +25,7 @@ import {
   HardDrive,
   LoaderCircle,
   Network,
+  ReceiptText,
   RefreshCw,
   Save,
   Settings2,
@@ -50,6 +51,18 @@ const emptyClinic: ClinicSettings = {
   website: '',
   logoPath: '',
   notes: '',
+  sri: {
+    enabled: false,
+    environment: 'TEST',
+    emissionType: 'NORMAL',
+    establishmentCode: '001',
+    emissionPoint: '001',
+    sequential: 1,
+    specialTaxpayerNumber: '',
+    accountingRequired: false,
+    digitalSignaturePath: '',
+    digitalSignatureConfigured: false,
+  },
 };
 
 const defaultPreferences: SystemPreferences = {
@@ -123,6 +136,16 @@ export function SettingsPage() {
     value: SystemPreferences[Key],
   ) => {
     setPreferences((current) => ({ ...current, [field]: value }));
+  };
+
+  const updateSri = <Key extends keyof ClinicSettings['sri']>(
+    field: Key,
+    value: ClinicSettings['sri'][Key],
+  ) => {
+    setClinic((current) => ({
+      ...current,
+      sri: { ...current.sri, [field]: value },
+    }));
   };
 
   const saveSettings = async () => {
@@ -204,7 +227,7 @@ export function SettingsPage() {
         />
       )}
 
-      <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+      <section className="grid grid-cols-2 gap-4 xl:grid-cols-5">
         <SettingsMetric
           icon={Building2}
           label="Clinica"
@@ -233,9 +256,20 @@ export function SettingsPage() {
           helper={runtimeModeHelpers[config.mode]}
           tone="amber"
         />
+        <SettingsMetric
+          icon={ReceiptText}
+          label="SRI"
+          value={clinic.sri.enabled ? 'Activado' : 'Pendiente'}
+          helper={
+            clinic.sri.enabled
+              ? `${clinic.sri.establishmentCode}-${clinic.sri.emissionPoint}`
+              : 'Facturacion electronica'
+          }
+          tone="teal"
+        />
       </section>
 
-      <section className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+      <section className="mt-4 grid grid-cols-1 gap-4 2xl:grid-cols-[1.15fr_0.85fr]">
         <Card className="p-5">
           <SectionHeader
             icon={Stethoscope}
@@ -491,6 +525,190 @@ export function SettingsPage() {
             </div>
           </Card>
         </div>
+      </section>
+
+      <section className="mt-4">
+        <Card className="p-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <SectionHeader
+              icon={ReceiptText}
+              title="Facturacion SRI Ecuador"
+              description="Datos tributarios necesarios para generar XML, firmar y autorizar facturas electronicas."
+            />
+            <Badge
+              className={
+                clinic.sri.enabled
+                  ? 'bg-emerald-50 text-emerald-700'
+                  : 'bg-amber-50 text-amber-700'
+              }
+            >
+              {clinic.sri.enabled ? 'SRI activado' : 'Pendiente de configurar'}
+            </Badge>
+          </div>
+
+          {isLoading ? (
+            <SettingsSkeleton rows={6} />
+          ) : (
+            <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <label className="flex items-start gap-3 rounded-2xl border border-teal-100 bg-teal-50/70 p-4 lg:col-span-3">
+                <input
+                  type="checkbox"
+                  checked={clinic.sri.enabled}
+                  onChange={(event) => updateSri('enabled', event.target.checked)}
+                  disabled={!canManage}
+                  className="mt-1 size-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+                />
+                <span>
+                  <span className="block text-sm font-bold text-slate-900">
+                    Activar facturacion electronica SRI
+                  </span>
+                  <span className="mt-1 block text-xs leading-5 text-slate-500">
+                    Al activar esto, VetCare Pro validara los datos tributarios
+                    antes de emitir una factura desde Pagos.
+                  </span>
+                </span>
+              </label>
+
+              <ClinicalField label="Ambiente SRI">
+                <select
+                  value={clinic.sri.environment}
+                  onChange={(event) =>
+                    updateSri(
+                      'environment',
+                      event.target.value as ClinicSettings['sri']['environment'],
+                    )
+                  }
+                  disabled={!canManage}
+                  className={clinicalInputClass}
+                >
+                  <option value="TEST">Pruebas</option>
+                  <option value="PRODUCTION">Produccion</option>
+                </select>
+              </ClinicalField>
+              <ClinicalField label="Tipo de emision">
+                <select
+                  value={clinic.sri.emissionType}
+                  onChange={(event) =>
+                    updateSri(
+                      'emissionType',
+                      event.target.value as ClinicSettings['sri']['emissionType'],
+                    )
+                  }
+                  disabled={!canManage}
+                  className={clinicalInputClass}
+                >
+                  <option value="NORMAL">Normal</option>
+                </select>
+              </ClinicalField>
+              <NumberSetting
+                label="Secuencial inicial"
+                suffix="Nro."
+                value={clinic.sri.sequential}
+                disabled={!canManage}
+                onChange={(value) => updateSri('sequential', value)}
+              />
+
+              <ClinicalField label="Establecimiento">
+                <input
+                  value={clinic.sri.establishmentCode}
+                  onChange={(event) =>
+                    updateSri(
+                      'establishmentCode',
+                      onlyDigits(event.target.value, 3),
+                    )
+                  }
+                  disabled={!canManage}
+                  className={clinicalInputClass}
+                  placeholder="001"
+                  maxLength={3}
+                />
+              </ClinicalField>
+              <ClinicalField label="Punto de emision">
+                <input
+                  value={clinic.sri.emissionPoint}
+                  onChange={(event) =>
+                    updateSri('emissionPoint', onlyDigits(event.target.value, 3))
+                  }
+                  disabled={!canManage}
+                  className={clinicalInputClass}
+                  placeholder="001"
+                  maxLength={3}
+                />
+              </ClinicalField>
+              <ClinicalField label="Contribuyente especial" optional>
+                <input
+                  value={clinic.sri.specialTaxpayerNumber}
+                  onChange={(event) =>
+                    updateSri(
+                      'specialTaxpayerNumber',
+                      onlyDigits(event.target.value, 20),
+                    )
+                  }
+                  disabled={!canManage}
+                  className={clinicalInputClass}
+                  placeholder="Resolucion SRI"
+                />
+              </ClinicalField>
+
+              <ClinicalField label="Ruta de firma electronica" optional>
+                <input
+                  value={clinic.sri.digitalSignaturePath}
+                  onChange={(event) =>
+                    updateSri('digitalSignaturePath', event.target.value)
+                  }
+                  disabled={!canManage}
+                  className={clinicalInputClass}
+                  placeholder="C:/VetCarePro/certificados/firma.p12"
+                />
+              </ClinicalField>
+              <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <input
+                  type="checkbox"
+                  checked={clinic.sri.digitalSignatureConfigured}
+                  onChange={(event) =>
+                    updateSri('digitalSignatureConfigured', event.target.checked)
+                  }
+                  disabled={!canManage}
+                  className="mt-1 size-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+                />
+                <span>
+                  <span className="block text-sm font-bold text-slate-800">
+                    Firma electronica configurada
+                  </span>
+                  <span className="mt-1 block text-xs leading-5 text-slate-500">
+                    Marcar solo cuando soporte haya instalado y probado el
+                    certificado.
+                  </span>
+                </span>
+              </label>
+              <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <input
+                  type="checkbox"
+                  checked={clinic.sri.accountingRequired}
+                  onChange={(event) =>
+                    updateSri('accountingRequired', event.target.checked)
+                  }
+                  disabled={!canManage}
+                  className="mt-1 size-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+                />
+                <span>
+                  <span className="block text-sm font-bold text-slate-800">
+                    Obligado a llevar contabilidad
+                  </span>
+                  <span className="mt-1 block text-xs leading-5 text-slate-500">
+                    Se reflejara en los XML/RIDE cuando se conecte el envio real.
+                  </span>
+                </span>
+              </label>
+
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-800 lg:col-span-3">
+                Para emitir una factura SRI, completa tambien en el perfil:
+                razon social, RUC de 13 digitos y direccion matriz. Esta version
+                ya bloquea la emision si falta informacion critica.
+              </div>
+            </div>
+          )}
+        </Card>
       </section>
 
       <section className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[1fr_0.8fr]">
@@ -776,4 +994,8 @@ function formatDate(value: string | null) {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value));
+}
+
+function onlyDigits(value: string, maxLength: number) {
+  return value.replace(/\D/g, '').slice(0, maxLength);
 }

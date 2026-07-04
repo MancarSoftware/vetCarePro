@@ -10,6 +10,20 @@ export interface ClinicSettings {
   website: string;
   logoPath: string;
   notes: string;
+  sri: SriSettings;
+}
+
+export interface SriSettings {
+  enabled: boolean;
+  environment: 'TEST' | 'PRODUCTION';
+  emissionType: 'NORMAL';
+  establishmentCode: string;
+  emissionPoint: string;
+  sequential: number;
+  specialTaxpayerNumber: string;
+  accountingRequired: boolean;
+  digitalSignaturePath: string;
+  digitalSignatureConfigured: boolean;
 }
 
 export interface SystemPreferences {
@@ -22,6 +36,10 @@ export interface SystemPreferences {
   backupReminderDays: number;
   enableAuditLog: boolean;
 }
+
+type PartialClinicSettings = Partial<Omit<ClinicSettings, 'sri'>> & {
+  sri?: Partial<SriSettings>;
+};
 
 export const CLINIC_SETTINGS_KEY = 'clinic.profile';
 export const SYSTEM_PREFERENCES_KEY = 'system.preferences';
@@ -38,6 +56,18 @@ export const defaultClinicSettings: ClinicSettings = {
   website: '',
   logoPath: '',
   notes: '',
+  sri: {
+    enabled: false,
+    environment: 'TEST',
+    emissionType: 'NORMAL',
+    establishmentCode: '001',
+    emissionPoint: '001',
+    sequential: 1,
+    specialTaxpayerNumber: '',
+    accountingRequired: false,
+    digitalSignaturePath: '',
+    digitalSignatureConfigured: false,
+  },
 };
 
 export const defaultSystemPreferences: SystemPreferences = {
@@ -52,9 +82,16 @@ export const defaultSystemPreferences: SystemPreferences = {
 };
 
 export function mergeClinicSettings(
-  current: Partial<ClinicSettings> | null | undefined,
+  current: PartialClinicSettings | null | undefined,
 ): ClinicSettings {
-  return { ...defaultClinicSettings, ...(current ?? {}) };
+  return {
+    ...defaultClinicSettings,
+    ...(current ?? {}),
+    sri: {
+      ...defaultClinicSettings.sri,
+      ...(current?.sri ?? {}),
+    },
+  };
 }
 
 export function mergeSystemPreferences(

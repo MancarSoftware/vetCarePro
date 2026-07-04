@@ -781,6 +781,20 @@ export interface ClinicSettings {
   website: string;
   logoPath: string;
   notes: string;
+  sri: SriSettings;
+}
+
+export interface SriSettings {
+  enabled: boolean;
+  environment: 'TEST' | 'PRODUCTION';
+  emissionType: 'NORMAL';
+  establishmentCode: string;
+  emissionPoint: string;
+  sequential: number;
+  specialTaxpayerNumber: string;
+  accountingRequired: boolean;
+  digitalSignaturePath: string;
+  digitalSignatureConfigured: boolean;
 }
 
 export interface SystemPreferences {

@@ -9,6 +9,11 @@ import {
   SriInvoiceStatus,
 } from '../../generated/prisma/enums';
 import { PrismaService } from '../../prisma/prisma.service';
+import {
+  CLINIC_SETTINGS_KEY,
+  ClinicSettings,
+  mergeClinicSettings,
+} from '../settings/settings-defaults';
 
 const sriInvoiceInclude = {
   payment: {
@@ -74,7 +79,9 @@ export class SriInvoicesService {
       throw new BadRequestException('No se puede facturar un cobro anulado');
     }
 
-    const sequential = await this.nextSequential();
+    const clinic = await this.getClinicSettings();
+    this.validateSriSettings(clinic);
+    const sequential = await this.nextSequential(clinic.sri.sequential);
     const customerDocument =
       payment.walkInCustomerDocument ||
       payment.owner.nationalId ||
@@ -84,7 +91,16 @@ export class SriInvoicesService {
         paymentId,
         issuedById: actorId,
         sequential,
-        accessKey: this.demoAccessKey(customerDocument, sequential),
+        environment: clinic.sri.environment,
+        establishmentCode: clinic.sri.establishmentCode,
+        emissionPoint: clinic.sri.emissionPoint,
+        accessKey: this.demoAccessKey(
+          clinic.taxId,
+          customerDocument,
+          clinic.sri.establishmentCode,
+          clinic.sri.emissionPoint,
+          sequential,
+        ),
         customerName:
           payment.walkInCustomerName ||
           `${payment.owner.firstName} ${payment.owner.lastName}`,
@@ -143,24 +159,74 @@ export class SriInvoicesService {
     return this.response(authorized);
   }
 
-  private async nextSequential() {
+  private async nextSequential(configuredStart: number) {
     const latest = await this.prisma.sriInvoice.findFirst({
       orderBy: { sequential: 'desc' },
       select: { sequential: true },
     });
-    return (latest?.sequential ?? 0) + 1;
+    return Math.max(latest?.sequential ?? 0, configuredStart - 1) + 1;
   }
 
-  private demoAccessKey(customerDocument: string, sequential: number) {
+  private demoAccessKey(
+    clinicRuc: string,
+    customerDocument: string,
+    establishmentCode: string,
+    emissionPoint: string,
+    sequential: number,
+  ) {
     const now = new Date();
     const date = [
       String(now.getDate()).padStart(2, '0'),
       String(now.getMonth() + 1).padStart(2, '0'),
       String(now.getFullYear()),
     ].join('');
+    const ruc = clinicRuc.replace(/\D/g, '').padStart(13, '0').slice(0, 13);
     const document = customerDocument.replace(/\D/g, '').padStart(13, '0');
     const serial = String(sequential).padStart(9, '0');
-    return `${date}01${document.slice(0, 13)}001001${serial}123456781`;
+    const numericCode = document.slice(-8).padStart(8, '0');
+    return `${date}01${ruc}${establishmentCode}${emissionPoint}${serial}${numericCode}1`;
+  }
+
+  private async getClinicSettings(): Promise<ClinicSettings> {
+    const setting = await this.prisma.setting.findUnique({
+      where: { key: CLINIC_SETTINGS_KEY },
+      select: { value: true },
+    });
+
+    if (
+      !setting?.value ||
+      typeof setting.value !== 'object' ||
+      Array.isArray(setting.value)
+    ) {
+      return mergeClinicSettings(null);
+    }
+
+    return mergeClinicSettings(setting.value as Partial<ClinicSettings>);
+  }
+
+  private validateSriSettings(clinic: ClinicSettings) {
+    const missing: string[] = [];
+    const ruc = clinic.taxId.replace(/\D/g, '');
+
+    if (!clinic.sri.enabled) missing.push('activar facturacion SRI');
+    if (!clinic.legalName.trim()) missing.push('razon social');
+    if (!/^\d{13}$/.test(ruc)) missing.push('RUC de 13 digitos');
+    if (!clinic.address.trim()) missing.push('direccion matriz');
+    if (!/^\d{3}$/.test(clinic.sri.establishmentCode)) {
+      missing.push('codigo de establecimiento');
+    }
+    if (!/^\d{3}$/.test(clinic.sri.emissionPoint)) {
+      missing.push('punto de emision');
+    }
+    if (!clinic.sri.digitalSignatureConfigured) {
+      missing.push('firma electronica configurada');
+    }
+
+    if (missing.length > 0) {
+      throw new BadRequestException(
+        `Configura los datos tributarios antes de emitir: ${missing.join(', ')}.`,
+      );
+    }
   }
 
   private response(invoice: SriInvoicePayload) {

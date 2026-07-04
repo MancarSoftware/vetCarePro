@@ -6,11 +6,60 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  Matches,
   Max,
   MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
+
+export class SriSettingsDto {
+  @IsOptional()
+  @IsBoolean()
+  enabled?: boolean;
+
+  @IsOptional()
+  @IsIn(['TEST', 'PRODUCTION'])
+  environment?: 'TEST' | 'PRODUCTION';
+
+  @IsOptional()
+  @IsIn(['NORMAL'])
+  emissionType?: 'NORMAL';
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{3}$/)
+  establishmentCode?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{3}$/)
+  emissionPoint?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(999999999)
+  sequential?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  specialTaxpayerNumber?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  accountingRequired?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(700)
+  digitalSignaturePath?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  digitalSignatureConfigured?: boolean;
+}
 
 export class ClinicSettingsDto {
   @IsOptional()
@@ -67,6 +116,11 @@ export class ClinicSettingsDto {
   @IsString()
   @MaxLength(500)
   notes?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => SriSettingsDto)
+  sri?: SriSettingsDto;
 }
 
 export class SystemPreferencesDto {
