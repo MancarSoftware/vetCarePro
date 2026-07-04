@@ -20,6 +20,7 @@ import { PreventiveCareModule } from './modules/preventive-care/preventive-care.
 import { ReportsModule } from './modules/reports/reports.module';
 import { RolesModule } from './modules/roles/roles.module';
 import { SettingsModule } from './modules/settings/settings.module';
+import { SriInvoicesModule } from './modules/sri-invoices/sri-invoices.module';
 import { TreatmentsModule } from './modules/treatments/treatments.module';
 import { UsersModule } from './modules/users/users.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -51,6 +52,7 @@ import { SecurityModule } from './security/security.module';
     FinanceModule,
     ReportsModule,
     SettingsModule,
+    SriInvoicesModule,
     DashboardModule,
     GlobalSearchModule,
   ],

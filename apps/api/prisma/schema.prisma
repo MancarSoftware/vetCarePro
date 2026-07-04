@@ -117,6 +117,16 @@ enum PaymentItemType {
   OTHER
 }
 
+enum SriInvoiceStatus {
+  DRAFT
+  XML_GENERATED
+  SIGNED
+  SENT
+  AUTHORIZED
+  REJECTED
+  CANCELLED
+}
+
 enum AuditAction {
   CREATE
   UPDATE
@@ -168,6 +178,7 @@ model User {
   inventoryMovements InventoryMovement[] @relation("InventoryMovementUser")
   payments           Payment[]           @relation("PaymentCreatedBy")
   paymentTransactions PaymentTransaction[] @relation("PaymentTransactionUser")
+  sriInvoices        SriInvoice[]        @relation("SriInvoiceIssuedBy")
   financeExpenses    FinanceExpense[]  @relation("FinanceExpenseCreatedBy")
   auditLogs          AuditLog[]          @relation("AuditActor")
   settings           Setting[]           @relation("SettingUpdatedBy")
@@ -586,6 +597,7 @@ model Payment {
   createdBy      User          @relation("PaymentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   items          PaymentItem[]
   transactions   PaymentTransaction[]
+  sriInvoices    SriInvoice[]
 
   @@index([status, paidAt])
   @@index([ownerId, createdAt])
@@ -593,6 +605,35 @@ model Payment {
   @@index([appointmentId])
   @@index([deletedAt])
   @@map("payments")
+}
+
+model SriInvoice {
+  id                  String           @id @default(uuid()) @db.Uuid
+  paymentId           String           @db.Uuid
+  issuedById          String           @db.Uuid
+  status              SriInvoiceStatus @default(DRAFT)
+  environment         String           @default("TEST") @db.VarChar(20)
+  establishmentCode   String           @default("001") @db.VarChar(3)
+  emissionPoint       String           @default("001") @db.VarChar(3)
+  sequential          Int
+  accessKey           String           @unique @db.VarChar(60)
+  authorizationNumber String?          @db.VarChar(80)
+  authorizedAt        DateTime?
+  customerName        String           @db.VarChar(180)
+  customerDocument    String           @db.VarChar(30)
+  customerEmail       String?          @db.VarChar(160)
+  xmlPath             String?          @db.VarChar(500)
+  ridePath            String?          @db.VarChar(500)
+  sriMessage          String?          @db.Text
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  payment             Payment          @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  issuedBy            User             @relation("SriInvoiceIssuedBy", fields: [issuedById], references: [id], onDelete: Restrict)
+
+  @@unique([paymentId])
+  @@index([status, createdAt])
+  @@index([issuedById, createdAt])
+  @@map("sri_invoices")
 }
 
 model PaymentItem {

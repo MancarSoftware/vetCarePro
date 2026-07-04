@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useAuth } from '@/contexts/auth-context';
+import type { ApiRequestOptions } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import type {
   Appointment,
@@ -20,6 +21,7 @@ import type {
   Payment,
   PaymentStatus,
   PaymentSummary,
+  SriInvoice,
 } from '@/types/clinical';
 import { format, isBefore, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -69,6 +71,11 @@ const emptySummary: PaymentSummary = {
   collectedToday: 0,
   collectedMonth: 0,
 };
+
+type ApiRequest = <T>(
+  path: string,
+  options?: ApiRequestOptions,
+) => Promise<T>;
 
 const statusPresentation: Record<
   PaymentStatus,
@@ -580,6 +587,7 @@ export function PaymentsPage({
         <PaymentDetailModal
           payment={detailPayment}
           canManage={canManage}
+          request={request}
           onClose={() => setDetailPayment(null)}
           onAddPayment={() => setIsTransactionOpen(true)}
           onVoid={() => setVoidingPayment(detailPayment)}
@@ -740,12 +748,14 @@ function PaymentsTable({
 function PaymentDetailModal({
   payment,
   canManage,
+  request,
   onClose,
   onAddPayment,
   onVoid,
 }: {
   payment: Payment;
   canManage: boolean;
+  request: ApiRequest;
   onClose: () => void;
   onAddPayment: () => void;
   onVoid: () => void;
@@ -753,10 +763,9 @@ function PaymentDetailModal({
   const status = statusPresentation[payment.status];
   const StatusIcon = status.icon;
   const [sriAssistantOpen, setSriAssistantOpen] = useState(false);
-  const [sriDemoStatus, setSriDemoStatus] = useState<'DRAFT' | 'AUTHORIZED'>(
-    'DRAFT',
-  );
-  const isSriAuthorized = sriDemoStatus === 'AUTHORIZED';
+  const [sriInvoice, setSriInvoice] = useState<SriInvoice | null>(null);
+  const [isSriLoading, setIsSriLoading] = useState(false);
+  const isSriAuthorized = sriInvoice?.status === 'AUTHORIZED';
   const customerName =
     payment.walkInCustomerName ||
     `${payment.owner.firstName} ${payment.owner.lastName}`;
@@ -764,6 +773,24 @@ function PaymentDetailModal({
     payment.walkInCustomerName
       ? payment.walkInCustomerPhone || 'Sin telefono'
       : payment.owner.phone;
+
+  const loadSriInvoice = useCallback(async () => {
+    setIsSriLoading(true);
+    try {
+      setSriInvoice(
+        await request<SriInvoice>(`/sri-invoices/payment/${payment.id}`),
+      );
+    } catch {
+      setSriInvoice(null);
+    } finally {
+      setIsSriLoading(false);
+    }
+  }, [payment.id, request]);
+
+  useEffect(() => {
+    void loadSriInvoice();
+  }, [loadSriInvoice]);
+
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-6 backdrop-blur-sm">
       <Card className="max-h-[94vh] w-full max-w-6xl overflow-y-auto">
@@ -811,7 +838,13 @@ function PaymentDetailModal({
                 )}
               >
                 <FileCheck2 className="size-4" />
-                {isSriAuthorized ? 'Factura SRI demo' : 'Emitir factura SRI'}
+                {isSriLoading
+                  ? 'Consultando SRI...'
+                  : isSriAuthorized
+                    ? 'Factura SRI demo'
+                    : sriInvoice
+                      ? 'Continuar factura SRI'
+                      : 'Emitir factura SRI'}
               </Button>
             )}
             {canManage &&
@@ -1043,8 +1076,10 @@ function PaymentDetailModal({
       {sriAssistantOpen && (
         <SriInvoiceAssistantModal
           payment={payment}
-          status={sriDemoStatus}
-          onStatusChange={setSriDemoStatus}
+          request={request}
+          sriInvoice={sriInvoice}
+          onInvoiceChange={setSriInvoice}
+          onReload={() => void loadSriInvoice()}
           onClose={() => setSriAssistantOpen(false)}
         />
       )}
@@ -1054,27 +1089,36 @@ function PaymentDetailModal({
 
 function SriInvoiceAssistantModal({
   payment,
-  status,
-  onStatusChange,
+  request,
+  sriInvoice,
+  onInvoiceChange,
+  onReload,
   onClose,
 }: {
   payment: Payment;
-  status: 'DRAFT' | 'AUTHORIZED';
-  onStatusChange: (status: 'DRAFT' | 'AUTHORIZED') => void;
+  request: ApiRequest;
+  sriInvoice: SriInvoice | null;
+  onInvoiceChange: (invoice: SriInvoice | null) => void;
+  onReload: () => void;
   onClose: () => void;
 }) {
-  const isAuthorized = status === 'AUTHORIZED';
+  const [isWorking, setIsWorking] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const isAuthorized = sriInvoice?.status === 'AUTHORIZED';
   const customerName =
+    sriInvoice?.customerName ||
     payment.walkInCustomerName ||
     `${payment.owner.firstName} ${payment.owner.lastName}`;
   const customerDocument =
+    sriInvoice?.customerDocument ||
     payment.walkInCustomerDocument ||
     payment.owner.nationalId ||
     'Consumidor final';
   const customerEmail =
+    sriInvoice?.customerEmail ||
     payment.owner.email ||
     (payment.walkInCustomerName ? 'Cliente ocasional sin correo' : 'Sin correo');
-  const accessKey = `03072026${customerDocument.replace(/\D/g, '').padStart(13, '0').slice(0, 13)}001001000000${payment.invoiceNumber.replace(/\D/g, '').slice(-3).padStart(3, '0')}`;
+  const accessKey = sriInvoice?.accessKey ?? 'Se generará al crear el borrador';
   const steps = [
     {
       label: 'Validar datos tributarios',
@@ -1108,6 +1152,53 @@ function SriInvoiceAssistantModal({
     },
   ];
 
+  const createDraft = async () => {
+    setIsWorking(true);
+    setActionError(null);
+    try {
+      const created = await request<SriInvoice>(
+        `/sri-invoices/payment/${payment.id}`,
+        { method: 'POST' },
+      );
+      onInvoiceChange(created);
+      return created;
+    } catch (error) {
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : 'No fue posible crear la factura SRI demo.',
+      );
+      return null;
+    } finally {
+      setIsWorking(false);
+    }
+  };
+
+  const authorizeDemo = async () => {
+    setIsWorking(true);
+    setActionError(null);
+    try {
+      const draft =
+        sriInvoice ??
+        (await request<SriInvoice>(`/sri-invoices/payment/${payment.id}`, {
+          method: 'POST',
+        }));
+      const authorized = await request<SriInvoice>(
+        `/sri-invoices/${draft.id}/demo-authorize`,
+        { method: 'POST' },
+      );
+      onInvoiceChange(authorized);
+    } catch (error) {
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : 'No fue posible simular la autorización SRI.',
+      );
+    } finally {
+      setIsWorking(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/55 p-6 backdrop-blur-sm">
       <Card className="max-h-[94vh] w-full max-w-6xl overflow-hidden">
@@ -1140,6 +1231,11 @@ function SriInvoiceAssistantModal({
         </div>
 
         <div className="max-h-[calc(94vh-184px)] overflow-y-auto p-6">
+          {actionError && (
+            <p className="mb-4 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              {actionError}
+            </p>
+          )}
           <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
             <div className="space-y-4">
               <Card className="border-slate-200 p-5 shadow-none">
@@ -1151,10 +1247,16 @@ function SriInvoiceAssistantModal({
                     className={cn(
                       isAuthorized
                         ? 'bg-emerald-50 text-emerald-700'
-                        : 'bg-amber-50 text-amber-700',
+                        : sriInvoice
+                          ? 'bg-amber-50 text-amber-700'
+                          : 'bg-slate-100 text-slate-600',
                     )}
                   >
-                    {isAuthorized ? 'Autorizado demo' : 'Borrador demo'}
+                    {isAuthorized
+                      ? 'Autorizado demo'
+                      : sriInvoice
+                        ? 'Borrador demo'
+                        : 'Sin factura SRI'}
                   </Badge>
                 </div>
                 <div className="mt-5 space-y-3 text-sm">
@@ -1193,17 +1295,28 @@ function SriInvoiceAssistantModal({
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
                   Clave de acceso demo
                 </p>
-                <p className="mt-3 break-all rounded-xl bg-white px-4 py-3 font-mono text-xs font-bold text-slate-700 ring-1 ring-slate-100">
-                  {accessKey}
-                </p>
-              </Card>
+                  <p className="mt-3 break-all rounded-xl bg-white px-4 py-3 font-mono text-xs font-bold text-slate-700 ring-1 ring-slate-100">
+                    {accessKey}
+                  </p>
+                  {sriInvoice?.authorizationNumber && (
+                    <p className="mt-3 text-xs font-semibold text-emerald-700">
+                      Autorización: {sriInvoice.authorizationNumber}
+                    </p>
+                  )}
+                  {sriInvoice?.sriMessage && (
+                    <p className="mt-2 text-xs leading-5 text-slate-500">
+                      {sriInvoice.sriMessage}
+                    </p>
+                  )}
+                </Card>
             </div>
 
             <div className="space-y-3">
               {steps.map((step, index) => {
                 const Icon = step.icon;
-                const completed = isAuthorized || index < 2;
-                const active = !isAuthorized && index === 2;
+                const completed = isAuthorized || (Boolean(sriInvoice) && index < 2);
+                const active =
+                  !isAuthorized && (sriInvoice ? index === 2 : index === 0);
                 return (
                   <div
                     key={step.label}
@@ -1260,12 +1373,27 @@ function SriInvoiceAssistantModal({
           </p>
           <div className="flex gap-2">
             <Button
-              onClick={() => onStatusChange('DRAFT')}
+              onClick={onReload}
+              disabled={isWorking}
               className="border border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
             >
               <RotateCcw className="size-4" />
-              Reiniciar demo
+              Recargar estado
             </Button>
+            {!sriInvoice && (
+              <Button
+                onClick={() => void createDraft()}
+                disabled={isWorking}
+                className="border border-teal-200 bg-white text-teal-700 hover:bg-teal-50"
+              >
+                {isWorking ? (
+                  <LoaderCircle className="size-4 animate-spin" />
+                ) : (
+                  <FileText className="size-4" />
+                )}
+                Crear borrador SRI
+              </Button>
+            )}
             <Button
               disabled={!isAuthorized}
               className="border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
@@ -1274,11 +1402,16 @@ function SriInvoiceAssistantModal({
               RIDE/PDF demo
             </Button>
             <Button
-              onClick={() => onStatusChange('AUTHORIZED')}
+              onClick={() => void authorizeDemo()}
+              disabled={isWorking || isAuthorized}
               className="bg-teal-600 text-white hover:bg-teal-700"
             >
-              <CheckCircle2 className="size-4" />
-              Simular autorización SRI
+              {isWorking ? (
+                <LoaderCircle className="size-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="size-4" />
+              )}
+              {isAuthorized ? 'Autorización lista' : 'Simular autorización SRI'}
             </Button>
           </div>
         </div>

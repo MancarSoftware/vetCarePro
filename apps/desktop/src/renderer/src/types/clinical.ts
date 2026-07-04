@@ -520,6 +520,15 @@ export type PaymentStatus =
 
 export type PaymentItemType = 'SERVICE' | 'PRODUCT' | 'OTHER';
 
+export type SriInvoiceStatus =
+  | 'DRAFT'
+  | 'XML_GENERATED'
+  | 'SIGNED'
+  | 'SENT'
+  | 'AUTHORIZED'
+  | 'REJECTED'
+  | 'CANCELLED';
+
 export interface PaymentItem {
   id: string;
   paymentId: string;
@@ -611,6 +620,40 @@ export interface Payment {
   _count: {
     items: number;
     transactions: number;
+  };
+}
+
+export interface SriInvoice {
+  id: string;
+  paymentId: string;
+  issuedById: string;
+  status: SriInvoiceStatus;
+  environment: string;
+  establishmentCode: string;
+  emissionPoint: string;
+  sequential: number;
+  accessKey: string;
+  authorizationNumber: string | null;
+  authorizedAt: string | null;
+  customerName: string;
+  customerDocument: string;
+  customerEmail: string | null;
+  xmlPath: string | null;
+  ridePath: string | null;
+  sriMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
+  payment: {
+    id: string;
+    invoiceNumber: string;
+    amount: number;
+    status: PaymentStatus;
+    createdAt: string;
+  };
+  issuedBy: {
+    id: string;
+    firstName: string;
+    lastName: string;
   };
 }
 
