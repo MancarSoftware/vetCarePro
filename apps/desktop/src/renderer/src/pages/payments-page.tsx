@@ -33,13 +33,18 @@ import {
   CircleDollarSign,
   Clock3,
   CreditCard,
+  Download,
+  FileCheck2,
   FileText,
+  KeyRound,
   LoaderCircle,
   PawPrint,
   Plus,
   Printer,
   ReceiptText,
+  RotateCcw,
   Search,
+  Send,
   ShieldX,
   UserRound,
   WalletCards,
@@ -747,6 +752,11 @@ function PaymentDetailModal({
 }) {
   const status = statusPresentation[payment.status];
   const StatusIcon = status.icon;
+  const [sriAssistantOpen, setSriAssistantOpen] = useState(false);
+  const [sriDemoStatus, setSriDemoStatus] = useState<'DRAFT' | 'AUTHORIZED'>(
+    'DRAFT',
+  );
+  const isSriAuthorized = sriDemoStatus === 'AUTHORIZED';
   const customerName =
     payment.walkInCustomerName ||
     `${payment.owner.firstName} ${payment.owner.lastName}`;
@@ -790,6 +800,20 @@ function PaymentDetailModal({
               <Printer className="size-4" />
               Imprimir
             </Button>
+            {canManage && payment.status !== 'VOIDED' && (
+              <Button
+                onClick={() => setSriAssistantOpen(true)}
+                className={cn(
+                  'border',
+                  isSriAuthorized
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                    : 'border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100',
+                )}
+              >
+                <FileCheck2 className="size-4" />
+                {isSriAuthorized ? 'Factura SRI demo' : 'Emitir factura SRI'}
+              </Button>
+            )}
             {canManage &&
               payment.status !== 'PAID' &&
               payment.status !== 'VOIDED' && (
@@ -1016,6 +1040,264 @@ function PaymentDetailModal({
           </div>
         </div>
       </Card>
+      {sriAssistantOpen && (
+        <SriInvoiceAssistantModal
+          payment={payment}
+          status={sriDemoStatus}
+          onStatusChange={setSriDemoStatus}
+          onClose={() => setSriAssistantOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function SriInvoiceAssistantModal({
+  payment,
+  status,
+  onStatusChange,
+  onClose,
+}: {
+  payment: Payment;
+  status: 'DRAFT' | 'AUTHORIZED';
+  onStatusChange: (status: 'DRAFT' | 'AUTHORIZED') => void;
+  onClose: () => void;
+}) {
+  const isAuthorized = status === 'AUTHORIZED';
+  const customerName =
+    payment.walkInCustomerName ||
+    `${payment.owner.firstName} ${payment.owner.lastName}`;
+  const customerDocument =
+    payment.walkInCustomerDocument ||
+    payment.owner.nationalId ||
+    'Consumidor final';
+  const customerEmail =
+    payment.owner.email ||
+    (payment.walkInCustomerName ? 'Cliente ocasional sin correo' : 'Sin correo');
+  const accessKey = `03072026${customerDocument.replace(/\D/g, '').padStart(13, '0').slice(0, 13)}001001000000${payment.invoiceNumber.replace(/\D/g, '').slice(-3).padStart(3, '0')}`;
+  const steps = [
+    {
+      label: 'Validar datos tributarios',
+      description: `${customerName} · ${customerDocument}`,
+      icon: UserRound,
+    },
+    {
+      label: 'Generar XML',
+      description: `Factura basada en ${payment.invoiceNumber}`,
+      icon: FileText,
+    },
+    {
+      label: 'Firmar XML',
+      description: 'Firma electrónica del contribuyente',
+      icon: KeyRound,
+    },
+    {
+      label: 'Enviar al SRI',
+      description: 'Web service de recepción',
+      icon: Send,
+    },
+    {
+      label: 'Consultar autorización',
+      description: 'Clave de acceso y número de autorización',
+      icon: CheckCircle2,
+    },
+    {
+      label: 'Generar RIDE/PDF',
+      description: 'Documento imprimible para el cliente',
+      icon: Download,
+    },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/55 p-6 backdrop-blur-sm">
+      <Card className="max-h-[94vh] w-full max-w-6xl overflow-hidden">
+        <div className="flex items-start justify-between border-b border-white/10 bg-gradient-to-br from-slate-950 via-teal-950 to-teal-700 p-6 text-white">
+          <div className="flex items-start gap-4">
+            <div className="grid size-14 shrink-0 place-items-center rounded-2xl bg-white/10 text-teal-100 ring-1 ring-white/20">
+              <FileCheck2 className="size-7" />
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-teal-100">
+                Facturación electrónica Ecuador
+              </p>
+              <h3 className="mt-2 text-2xl font-black">
+                Asistente visual de emisión SRI
+              </h3>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-teal-50/85">
+                Este flujo nace desde el cobro interno. Por ahora es una vista
+                demostrativa: no firma, no envía y no autoriza comprobantes
+                reales ante el SRI todavía.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid size-9 place-items-center rounded-lg text-white/70 hover:bg-white/10 hover:text-white"
+          >
+            <X className="size-5" />
+          </button>
+        </div>
+
+        <div className="max-h-[calc(94vh-184px)] overflow-y-auto p-6">
+          <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+            <div className="space-y-4">
+              <Card className="border-slate-200 p-5 shadow-none">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-teal-600">
+                    Cobro origen
+                  </p>
+                  <Badge
+                    className={cn(
+                      isAuthorized
+                        ? 'bg-emerald-50 text-emerald-700'
+                        : 'bg-amber-50 text-amber-700',
+                    )}
+                  >
+                    {isAuthorized ? 'Autorizado demo' : 'Borrador demo'}
+                  </Badge>
+                </div>
+                <div className="mt-5 space-y-3 text-sm">
+                  <SriSummaryRow
+                    label="Documento interno"
+                    value={payment.invoiceNumber}
+                  />
+                  <SriSummaryRow label="Cliente" value={customerName} />
+                  <SriSummaryRow
+                    label="Identificación"
+                    value={customerDocument}
+                  />
+                  <SriSummaryRow label="Correo" value={customerEmail} />
+                  <div className="flex justify-between gap-4 border-t border-slate-100 pt-3">
+                    <span className="text-slate-500">Total a facturar</span>
+                    <span className="text-lg font-black text-slate-950">
+                      {currency.format(payment.amount)}
+                    </span>
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="border-teal-100 bg-teal-50/70 p-5 shadow-none">
+                <p className="text-sm font-bold text-teal-900">
+                  Lo que hará la versión real
+                </p>
+                <p className="mt-2 text-sm leading-6 text-teal-800">
+                  El pago quedará como origen contable. Desde aquí se validarán
+                  los datos tributarios, se generará el XML, se firmará con la
+                  firma electrónica, se enviará al SRI y se guardarán XML
+                  autorizado, clave de acceso y RIDE/PDF.
+                </p>
+              </Card>
+
+              <Card className="border-slate-200 bg-slate-50 p-5 shadow-none">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
+                  Clave de acceso demo
+                </p>
+                <p className="mt-3 break-all rounded-xl bg-white px-4 py-3 font-mono text-xs font-bold text-slate-700 ring-1 ring-slate-100">
+                  {accessKey}
+                </p>
+              </Card>
+            </div>
+
+            <div className="space-y-3">
+              {steps.map((step, index) => {
+                const Icon = step.icon;
+                const completed = isAuthorized || index < 2;
+                const active = !isAuthorized && index === 2;
+                return (
+                  <div
+                    key={step.label}
+                    className={cn(
+                      'flex items-center gap-4 rounded-2xl border p-4 transition',
+                      completed
+                        ? 'border-emerald-100 bg-emerald-50/70'
+                        : active
+                          ? 'border-teal-200 bg-teal-50'
+                          : 'border-slate-200 bg-white',
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        'grid size-11 shrink-0 place-items-center rounded-xl',
+                        completed
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : active
+                            ? 'bg-teal-100 text-teal-700'
+                            : 'bg-slate-100 text-slate-400',
+                      )}
+                    >
+                      <Icon className="size-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-slate-900">{step.label}</p>
+                      <p className="mt-0.5 truncate text-sm text-slate-500">
+                        {step.description}
+                      </p>
+                    </div>
+                    <Badge
+                      className={cn(
+                        completed
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : active
+                            ? 'bg-teal-100 text-teal-700'
+                            : 'bg-slate-100 text-slate-500',
+                      )}
+                    >
+                      {completed ? 'Listo' : active ? 'Siguiente' : 'Pendiente'}
+                    </Badge>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4">
+          <p className="max-w-xl text-xs leading-5 text-slate-500">
+            Demo visual local. La integración real necesitará RUC, firma
+            electrónica, ambiente de pruebas/producción SRI, secuenciales y
+            almacenamiento tributario.
+          </p>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => onStatusChange('DRAFT')}
+              className="border border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
+            >
+              <RotateCcw className="size-4" />
+              Reiniciar demo
+            </Button>
+            <Button
+              disabled={!isAuthorized}
+              className="border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Download className="size-4" />
+              RIDE/PDF demo
+            </Button>
+            <Button
+              onClick={() => onStatusChange('AUTHORIZED')}
+              className="bg-teal-600 text-white hover:bg-teal-700"
+            >
+              <CheckCircle2 className="size-4" />
+              Simular autorización SRI
+            </Button>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function SriSummaryRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex justify-between gap-4">
+      <span className="text-slate-500">{label}</span>
+      <span className="text-right font-bold text-slate-900">{value}</span>
     </div>
   );
 }
