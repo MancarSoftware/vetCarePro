@@ -8,6 +8,8 @@ import { CreateOwnerDto } from './dto/create-owner.dto';
 import { OwnersQueryDto } from './dto/owners-query.dto';
 import { UpdateOwnerDto } from './dto/update-owner.dto';
 
+const WALK_IN_OWNER_NATIONAL_ID = 'VETCARE-CONSUMIDOR-FINAL';
+
 @Injectable()
 export class OwnersService {
   constructor(private readonly prisma: PrismaService) {}
@@ -16,6 +18,7 @@ export class OwnersService {
     const search = query.search?.trim();
     const where = {
       deletedAt: null,
+      nationalId: { not: WALK_IN_OWNER_NATIONAL_ID },
       ...(search
         ? {
             OR: [
@@ -249,4 +252,3 @@ export class OwnersService {
     return normalized ? normalized : null;
   }
 }
-
