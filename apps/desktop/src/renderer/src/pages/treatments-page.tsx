@@ -5,6 +5,7 @@ import {
   ClinicalMetric,
   ClinicalModalHeader,
 } from '@/components/clinical/clinical-ui';
+import { PetAvatar } from '@/components/clinical/pet-avatar';
 import {
   emptyTreatmentForm,
   TreatmentFormModal,
@@ -42,7 +43,6 @@ import {
   CheckCircle2,
   ChevronRight,
   CirclePause,
-  Dog,
   FileHeart,
   HeartPulse,
   History,
@@ -673,9 +673,12 @@ function TreatmentCard({
       <div className="p-5">
         <div className="flex items-start justify-between gap-4">
           <div className="flex min-w-0 gap-3">
-            <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-teal-50 text-teal-700">
-              <Dog className="size-6" />
-            </div>
+            <PetAvatar
+              photoPath={treatment.pet.photoPath}
+              alt={`Foto de ${treatment.pet.name}`}
+              className="size-12 rounded-2xl"
+              iconClassName="size-6"
+            />
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-lg font-bold text-slate-900">

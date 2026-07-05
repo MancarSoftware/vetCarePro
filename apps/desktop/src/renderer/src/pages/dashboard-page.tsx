@@ -1,6 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { PetAvatar } from '@/components/clinical/pet-avatar';
 import { useDashboard } from '@/hooks/use-dashboard';
 import { useAuth } from '@/contexts/auth-context';
 import { cn } from '@/lib/utils';
@@ -595,9 +596,12 @@ export function DashboardPage({
                   key={pet.id}
                   className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-center"
                 >
-                  <div className="mx-auto grid size-14 place-items-center rounded-full bg-teal-100 text-teal-700">
-                    <PawPrint className="size-6" />
-                  </div>
+                  <PetAvatar
+                    photoPath={pet.photoPath}
+                    alt={`Foto de ${pet.name}`}
+                    className="mx-auto size-14 rounded-full"
+                    iconClassName="size-6"
+                  />
                   <p className="mt-2 truncate text-sm font-bold text-slate-800">
                     {pet.name}
                   </p>
@@ -639,9 +643,13 @@ export function DashboardPage({
                   key={treatment.id}
                   className="flex items-center gap-4 rounded-xl border border-slate-100 p-4"
                 >
-                  <div className="grid size-11 shrink-0 place-items-center rounded-full bg-teal-50 text-teal-600">
-                    <HeartPulse className="size-5" />
-                  </div>
+                  <PetAvatar
+                    photoPath={treatment.pet.photoPath}
+                    alt={`Foto de ${treatment.pet.name}`}
+                    fallbackIcon={HeartPulse}
+                    className="size-11 rounded-full"
+                    iconClassName="size-5"
+                  />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-bold text-slate-800">
                       {treatment.pet.name}

@@ -5,6 +5,7 @@ import {
   ClinicalMetric,
   ClinicalModalHeader,
 } from '@/components/clinical/clinical-ui';
+import { PetAvatar } from '@/components/clinical/pet-avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -39,7 +40,6 @@ import {
   ChevronRight,
   CircleX,
   Clock3,
-  Dog,
   History,
   LoaderCircle,
   Pencil,
@@ -873,9 +873,12 @@ function AppointmentCard({
       )}
     >
       <div className="flex items-start gap-4">
-        <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-teal-50 text-teal-700">
-          <Dog className="size-5" />
-        </div>
+        <PetAvatar
+          photoPath={appointment.pet.photoPath}
+          alt={`Foto de ${appointment.pet.name}`}
+          className="size-11 rounded-xl"
+          iconClassName="size-5"
+        />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-bold text-slate-900">

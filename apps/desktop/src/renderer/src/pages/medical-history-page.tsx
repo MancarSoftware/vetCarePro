@@ -3,6 +3,7 @@ import {
   clinicalInputClass,
   ClinicalMetric,
 } from '@/components/clinical/clinical-ui';
+import { PetAvatar } from '@/components/clinical/pet-avatar';
 import {
   emptyMedicalRecordForm,
   MedicalRecordFormModal,
@@ -574,9 +575,12 @@ function PatientPanel({
       </div>
       {selectedPet && (
         <div className="p-5 text-center">
-          <div className="mx-auto grid size-20 place-items-center rounded-3xl bg-gradient-to-br from-teal-50 to-cyan-100 text-teal-700">
-            <Dog className="size-9" />
-          </div>
+          <PetAvatar
+            photoPath={selectedPet.photoPath}
+            alt={`Foto de ${selectedPet.name}`}
+            className="mx-auto size-20 rounded-3xl"
+            iconClassName="size-9"
+          />
           <h2 className="mt-4 text-xl font-bold text-slate-900">
             {selectedPet.name}
           </h2>
