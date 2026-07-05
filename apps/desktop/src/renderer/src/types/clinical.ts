@@ -195,6 +195,7 @@ export interface MedicalRecord {
     name: string;
     species: string;
     breed: string | null;
+    photoPath: string | null;
     status: PetStatus;
     owner: PetOwner;
   };
@@ -323,6 +324,7 @@ export interface Treatment {
     name: string;
     species: string;
     breed: string | null;
+    photoPath: string | null;
     weightKg: number | null;
     owner: PetOwner;
   };
@@ -386,6 +388,7 @@ interface PreventiveCareBase {
     name: string;
     species: string;
     breed: string | null;
+    photoPath: string | null;
     owner: PetOwner;
   };
   medicalRecord: {

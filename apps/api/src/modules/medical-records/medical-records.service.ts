@@ -76,6 +76,7 @@ export class MedicalRecordsService {
               name: true,
               species: true,
               breed: true,
+              photoPath: true,
               status: true,
               owner: {
                 select: {
@@ -151,7 +152,7 @@ export class MedicalRecordsService {
         data,
         include: {
           pet: {
-            select: { id: true, name: true },
+            select: { id: true, name: true, photoPath: true },
           },
           veterinarian: {
             select: { id: true, firstName: true, lastName: true },
@@ -211,7 +212,7 @@ export class MedicalRecordsService {
         where: { id: recordId },
         data,
         include: {
-          pet: { select: { id: true, name: true } },
+          pet: { select: { id: true, name: true, photoPath: true } },
           veterinarian: {
             select: { id: true, firstName: true, lastName: true },
           },

@@ -5,6 +5,7 @@ import {
   ClinicalMetric,
   ClinicalModalHeader,
 } from '@/components/clinical/clinical-ui';
+import { PetAvatar } from '@/components/clinical/pet-avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -26,7 +27,6 @@ import {
   CalendarClock,
   CalendarDays,
   CheckCircle2,
-  Dog,
   LoaderCircle,
   Pencil,
   Plus,
@@ -589,9 +589,12 @@ function PreventiveTable({
               >
                 <td className="px-5 py-4">
                   <div className="flex items-center gap-3">
-                    <div className="grid size-9 place-items-center rounded-xl bg-teal-50 text-teal-700">
-                      <Dog className="size-4" />
-                    </div>
+                    <PetAvatar
+                      photoPath={item.pet.photoPath}
+                      alt={`Foto de ${item.pet.name}`}
+                      className="size-9 rounded-xl"
+                      iconClassName="size-4"
+                    />
                     <div>
                       <p className="font-bold text-slate-800">
                         {item.pet.name}

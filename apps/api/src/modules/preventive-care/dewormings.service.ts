@@ -18,6 +18,7 @@ const dewormingInclude = {
       name: true,
       species: true,
       breed: true,
+      photoPath: true,
       owner: {
         select: {
           id: true,

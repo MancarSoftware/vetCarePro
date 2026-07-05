@@ -5,6 +5,7 @@ import {
   ClinicalMetric,
   ClinicalModalHeader,
 } from '@/components/clinical/clinical-ui';
+import { PetAvatar } from '@/components/clinical/pet-avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -589,59 +590,6 @@ function PetCard({
         )}
       </div>
     </article>
-  );
-}
-
-function PetAvatar({
-  photoPath,
-  fallbackIcon: FallbackIcon,
-}: {
-  photoPath: string | null;
-  fallbackIcon: typeof Dog;
-}) {
-  const { requestBlob } = useAuth();
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    let mounted = true;
-    let objectUrl: string | null = null;
-
-    setImageUrl(null);
-    if (!photoPath?.startsWith('/')) {
-      return () => undefined;
-    }
-
-    void requestBlob(photoPath)
-      .then((blob) => {
-        if (!mounted) return;
-        objectUrl = URL.createObjectURL(blob);
-        setImageUrl(objectUrl);
-      })
-      .catch(() => {
-        if (mounted) setImageUrl(null);
-      });
-
-    return () => {
-      mounted = false;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [photoPath, requestBlob]);
-
-  return (
-    <div className="size-14 overflow-hidden rounded-2xl bg-gradient-to-br from-teal-50 to-cyan-100 text-teal-700 shadow-inner shadow-white/60">
-      {imageUrl ? (
-        <img
-          src={imageUrl}
-          alt="Foto de perfil de la mascota"
-          className="size-full object-cover object-center"
-          draggable={false}
-        />
-      ) : (
-        <div className="grid size-full place-items-center">
-          <FallbackIcon className="size-7" />
-        </div>
-      )}
-    </div>
   );
 }
 

@@ -38,6 +38,7 @@ const treatmentInclude = {
       name: true,
       species: true,
       breed: true,
+      photoPath: true,
       weightKg: true,
       owner: {
         select: {
