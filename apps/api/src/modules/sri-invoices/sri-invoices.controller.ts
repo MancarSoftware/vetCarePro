@@ -5,8 +5,10 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  StreamableFile,
   UseGuards,
 } from '@nestjs/common';
+import { createReadStream } from 'node:fs';
 import type { AuthenticatedUser } from '../../common/auth/authenticated-user';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
@@ -55,5 +57,16 @@ export class SriInvoicesController {
   @RequirePermissions(PERMISSIONS.PAYMENTS_MANAGE)
   generateRide(@Param('id', ParseUUIDPipe) sriInvoiceId: string) {
     return this.sriInvoicesService.generateRide(sriInvoiceId);
+  }
+
+  @Get(':id/ride')
+  @RequirePermissions(PERMISSIONS.PAYMENTS_READ)
+  async openRide(@Param('id', ParseUUIDPipe) sriInvoiceId: string) {
+    const file = await this.sriInvoicesService.getRideFile(sriInvoiceId);
+    return new StreamableFile(createReadStream(file.absolutePath), {
+      type: 'application/pdf',
+      disposition: `inline; filename="${file.fileName}"`,
+      length: file.sizeBytes,
+    });
   }
 }

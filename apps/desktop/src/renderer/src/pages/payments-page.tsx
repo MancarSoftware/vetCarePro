@@ -77,6 +77,11 @@ type ApiRequest = <T>(
   options?: ApiRequestOptions,
 ) => Promise<T>;
 
+type ApiBlobRequest = (
+  path: string,
+  options?: ApiRequestOptions,
+) => Promise<Blob>;
+
 const statusPresentation: Record<
   PaymentStatus,
   { label: string; className: string; icon: LucideIcon }
@@ -112,7 +117,7 @@ export function PaymentsPage({
   initialAppointmentId,
   onInitialAppointmentHandled,
 }: PaymentsPageProps = {}) {
-  const { request, user } = useAuth();
+  const { request, requestBlob, user } = useAuth();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [summary, setSummary] = useState(emptySummary);
   const [owners, setOwners] = useState<Owner[]>([]);
@@ -588,6 +593,7 @@ export function PaymentsPage({
           payment={detailPayment}
           canManage={canManage}
           request={request}
+          requestBlob={requestBlob}
           onClose={() => setDetailPayment(null)}
           onAddPayment={() => setIsTransactionOpen(true)}
           onVoid={() => setVoidingPayment(detailPayment)}
@@ -749,6 +755,7 @@ function PaymentDetailModal({
   payment,
   canManage,
   request,
+  requestBlob,
   onClose,
   onAddPayment,
   onVoid,
@@ -756,6 +763,7 @@ function PaymentDetailModal({
   payment: Payment;
   canManage: boolean;
   request: ApiRequest;
+  requestBlob: ApiBlobRequest;
   onClose: () => void;
   onAddPayment: () => void;
   onVoid: () => void;
@@ -1077,6 +1085,7 @@ function PaymentDetailModal({
         <SriInvoiceAssistantModal
           payment={payment}
           request={request}
+          requestBlob={requestBlob}
           sriInvoice={sriInvoice}
           onInvoiceChange={setSriInvoice}
           onReload={() => void loadSriInvoice()}
@@ -1090,6 +1099,7 @@ function PaymentDetailModal({
 function SriInvoiceAssistantModal({
   payment,
   request,
+  requestBlob,
   sriInvoice,
   onInvoiceChange,
   onReload,
@@ -1097,6 +1107,7 @@ function SriInvoiceAssistantModal({
 }: {
   payment: Payment;
   request: ApiRequest;
+  requestBlob: ApiBlobRequest;
   sriInvoice: SriInvoice | null;
   onInvoiceChange: (invoice: SriInvoice | null) => void;
   onReload: () => void;
@@ -1250,6 +1261,31 @@ function SriInvoiceAssistantModal({
         error instanceof Error
           ? error.message
           : 'No fue posible generar el RIDE/PDF demo.',
+      );
+    } finally {
+      setIsWorking(false);
+    }
+  };
+
+  const openRide = async () => {
+    setIsWorking(true);
+    setActionError(null);
+    try {
+      const draft = sriInvoice;
+      if (!draft?.ridePath) {
+        setActionError('Primero genera el RIDE/PDF antes de abrirlo.');
+        return;
+      }
+
+      const blob = await requestBlob(`/sri-invoices/${draft.id}/ride`);
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener,noreferrer');
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (error) {
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : 'No fue posible abrir el RIDE/PDF demo.',
       );
     } finally {
       setIsWorking(false);
@@ -1483,8 +1519,8 @@ function SriInvoiceAssistantModal({
               </Button>
             )}
             <Button
-              onClick={() => void generateRide()}
-              disabled={isWorking || !hasXml || hasRide}
+              onClick={() => void (hasRide ? openRide() : generateRide())}
+              disabled={isWorking || (!hasRide && !hasXml)}
               className="border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {isWorking ? (
@@ -1492,7 +1528,7 @@ function SriInvoiceAssistantModal({
               ) : (
                 <Download className="size-4" />
               )}
-              {hasRide ? 'RIDE/PDF listo' : 'Generar RIDE/PDF'}
+              {hasRide ? 'Abrir RIDE/PDF' : 'Generar RIDE/PDF'}
             </Button>
             <Button
               onClick={() => void authorizeDemo()}

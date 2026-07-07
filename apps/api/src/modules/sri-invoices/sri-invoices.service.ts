@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, stat, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { Prisma } from '../../generated/prisma/client';
 import {
@@ -321,6 +321,39 @@ export class SriInvoicesService {
     });
 
     return this.response(updated);
+  }
+
+  async getRideFile(sriInvoiceId: string) {
+    const invoice = await this.prisma.sriInvoice.findUnique({
+      where: { id: sriInvoiceId },
+      select: {
+        accessKey: true,
+        ridePath: true,
+      },
+    });
+
+    if (!invoice) {
+      throw new NotFoundException('La factura SRI no existe');
+    }
+    if (!invoice.ridePath) {
+      throw new NotFoundException(
+        'La factura SRI aun no tiene RIDE/PDF generado',
+      );
+    }
+
+    const absolutePath = resolve(invoice.ridePath);
+    const fileStats = await stat(absolutePath).catch(() => null);
+    if (!fileStats?.isFile()) {
+      throw new NotFoundException(
+        'El archivo RIDE/PDF no existe en disco. Genera nuevamente el RIDE.',
+      );
+    }
+
+    return {
+      absolutePath,
+      fileName: `RIDE-${invoice.accessKey}.pdf`,
+      sizeBytes: fileStats.size,
+    };
   }
 
   private buildSriInvoiceXml(
