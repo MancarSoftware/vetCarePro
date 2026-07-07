@@ -61,6 +61,8 @@ type SriInvoiceXmlPayload = Prisma.SriInvoiceGetPayload<{
   };
 }>;
 
+type SriInvoiceRidePayload = SriInvoiceXmlPayload;
+
 @Injectable()
 export class SriInvoicesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -176,7 +178,6 @@ export class SriInvoicesService {
         status: SriInvoiceStatus.AUTHORIZED,
         authorizationNumber: `DEMO-${invoice.accessKey.slice(-16)}`,
         authorizedAt: new Date(),
-        ridePath: `C:/VetCarePro/sri/ride/${invoice.accessKey}.pdf`,
         sriMessage:
           'Autorizacion simulada. Pendiente integracion real con servicios SRI.',
       },
@@ -245,6 +246,76 @@ export class SriInvoicesService {
         changes: {
           status: SriInvoiceStatus.XML_GENERATED,
           xmlPath,
+        },
+      },
+    });
+
+    return this.response(updated);
+  }
+
+  async generateRide(sriInvoiceId: string) {
+    const invoice = await this.prisma.sriInvoice.findUnique({
+      where: { id: sriInvoiceId },
+      include: {
+        issuedBy: sriInvoiceInclude.issuedBy,
+        payment: {
+          include: {
+            owner: true,
+            items: {
+              include: {
+                product: {
+                  select: {
+                    sku: true,
+                    name: true,
+                  },
+                },
+              },
+              orderBy: { createdAt: 'asc' },
+            },
+          },
+        },
+      },
+    });
+
+    if (!invoice) {
+      throw new NotFoundException('La factura SRI no existe');
+    }
+    if (invoice.status === SriInvoiceStatus.CANCELLED) {
+      throw new BadRequestException('La factura SRI esta cancelada');
+    }
+    if (!invoice.xmlPath) {
+      throw new BadRequestException(
+        'Primero genera el XML antes de crear el RIDE/PDF demo',
+      );
+    }
+
+    const clinic = await this.getClinicSettings();
+    this.validateSriSettings(clinic);
+    const ridePath = await this.writeRidePdf(
+      invoice.accessKey,
+      this.buildRideLines(invoice, clinic),
+    );
+
+    const updated = await this.prisma.sriInvoice.update({
+      where: { id: sriInvoiceId },
+      data: {
+        ridePath,
+        sriMessage:
+          invoice.status === SriInvoiceStatus.AUTHORIZED
+            ? 'RIDE/PDF demo generado localmente. Autorizacion simulada lista.'
+            : 'RIDE/PDF demo generado localmente. Pendiente autorizacion SRI real.',
+      },
+      include: sriInvoiceInclude,
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorId: invoice.issuedById,
+        action: 'UPDATE',
+        entityType: 'SriInvoice',
+        entityId: invoice.id,
+        changes: {
+          ridePath,
         },
       },
     });
@@ -370,6 +441,151 @@ export class SriInvoicesService {
     const targetPath = join(xmlRoot, `${accessKey}.xml`);
     await writeFile(targetPath, xml, 'utf8');
     return targetPath;
+  }
+
+  private async writeRidePdf(accessKey: string, lines: string[]) {
+    const rideRoot = resolve(
+      process.env.SRI_RIDE_PATH ?? 'C:/VetCarePro/sri/ride',
+    );
+    await mkdir(rideRoot, { recursive: true });
+    const targetPath = join(rideRoot, `${accessKey}.pdf`);
+    await writeFile(targetPath, this.buildSimplePdf(lines));
+    return targetPath;
+  }
+
+  private buildRideLines(
+    invoice: SriInvoiceRidePayload,
+    clinic: ClinicSettings,
+  ) {
+    const payment = invoice.payment;
+    const customerName =
+      payment.walkInCustomerName ||
+      `${payment.owner.firstName} ${payment.owner.lastName}`;
+    const customerDocument =
+      payment.walkInCustomerDocument ||
+      payment.owner.nationalId ||
+      invoice.customerDocument;
+    const issuedBy = `${invoice.issuedBy.firstName} ${invoice.issuedBy.lastName}`;
+    const sequential = `${invoice.establishmentCode}-${invoice.emissionPoint}-${String(
+      invoice.sequential,
+    ).padStart(9, '0')}`;
+    const lines = [
+      'VETCARE PRO - RIDE / FACTURA DEMO',
+      'Representacion impresa de comprobante electronico',
+      '',
+      `Clinica: ${clinic.name}`,
+      `Razon social: ${clinic.legalName}`,
+      `RUC: ${clinic.taxId}`,
+      `Direccion matriz: ${clinic.address}`,
+      `Ambiente: ${invoice.environment === 'PRODUCTION' ? 'PRODUCCION' : 'PRUEBAS'}`,
+      '',
+      `Factura: ${sequential}`,
+      `Documento interno: ${payment.invoiceNumber}`,
+      `Fecha emision: ${this.formatSriDate(new Date())}`,
+      `Estado SRI: ${invoice.status}`,
+      `Autorizacion: ${invoice.authorizationNumber ?? 'Pendiente / demo'}`,
+      `Clave de acceso: ${invoice.accessKey}`,
+      '',
+      `Cliente: ${customerName}`,
+      `Identificacion: ${customerDocument}`,
+      `Correo: ${payment.owner.email ?? invoice.customerEmail ?? 'Sin correo'}`,
+      '',
+      'DETALLE',
+      '------------------------------------------------------------',
+      ...payment.items.flatMap((item, index) => [
+        `${index + 1}. ${item.description}`,
+        `   Cant: ${this.quantity(item.quantity)}  P.Unit: ${this.money(
+          item.unitPrice,
+        )}  Desc: ${this.money(item.discount)}  Total: ${this.money(
+          item.total,
+        )}`,
+      ]),
+      '------------------------------------------------------------',
+      `Subtotal: ${this.money(payment.subtotal)}`,
+      `Descuentos: ${this.money(payment.discount)}`,
+      'IVA 0% demo: 0.00',
+      `TOTAL: ${this.money(payment.amount)}`,
+      '',
+      `Generado por: ${issuedBy}`,
+      'Nota: RIDE demo local. Pendiente firma, envio y autorizacion real del SRI.',
+    ];
+
+    return lines.flatMap((line) => this.wrapPdfLine(line, 88));
+  }
+
+  private buildSimplePdf(lines: string[]) {
+    const contentLines = lines.slice(0, 46);
+    const text = [
+      'BT',
+      '/F1 10 Tf',
+      '50 790 Td',
+      ...contentLines.flatMap((line, index) => [
+        index === 0 ? '/F1 15 Tf' : index === 1 ? '/F1 9 Tf' : '/F1 10 Tf',
+        `(${this.pdfEscape(line)}) Tj`,
+        '0 -15 Td',
+      ]),
+      'ET',
+    ].join('\n');
+    const streamContent = `${text}\n`;
+    const stream = Buffer.from(streamContent, 'latin1');
+    const objects = [
+      '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n',
+      '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n',
+      '3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj\n',
+      '4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n',
+      `5 0 obj\n<< /Length ${stream.length} >>\nstream\n${streamContent}endstream\nendobj\n`,
+    ];
+    let offset = '%PDF-1.4\n'.length;
+    const xref = objects.map((object) => {
+      const current = offset;
+      offset += Buffer.byteLength(object, 'latin1');
+      return current;
+    });
+    const body = objects.join('');
+    const xrefStart = Buffer.byteLength('%PDF-1.4\n' + body, 'latin1');
+    const xrefRows = [
+      'xref',
+      '0 6',
+      '0000000000 65535 f ',
+      ...xref.map((entry) => `${String(entry).padStart(10, '0')} 00000 n `),
+      'trailer',
+      '<< /Size 6 /Root 1 0 R >>',
+      'startxref',
+      String(xrefStart),
+      '%%EOF',
+      '',
+    ].join('\n');
+
+    return Buffer.from(`%PDF-1.4\n${body}${xrefRows}`, 'latin1');
+  }
+
+  private wrapPdfLine(line: string, maxLength: number) {
+    const clean = this.pdfText(line);
+    if (clean.length <= maxLength) return [clean];
+
+    const lines: string[] = [];
+    let remaining = clean;
+    while (remaining.length > maxLength) {
+      const breakAt = Math.max(
+        remaining.lastIndexOf(' ', maxLength),
+        Math.min(maxLength, remaining.length),
+      );
+      lines.push(remaining.slice(0, breakAt).trim());
+      remaining = remaining.slice(breakAt).trim();
+    }
+    if (remaining) lines.push(remaining);
+    return lines;
+  }
+
+  private pdfText(value: string) {
+    return value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^\x20-\x7E]/g, '?');
+  }
+
+  private pdfEscape(value: string) {
+    return this.pdfText(value).replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
   }
 
   private async nextSequential(configuredStart: number) {

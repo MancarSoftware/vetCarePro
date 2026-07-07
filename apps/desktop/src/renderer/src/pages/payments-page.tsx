@@ -1120,6 +1120,7 @@ function SriInvoiceAssistantModal({
     (payment.walkInCustomerName ? 'Cliente ocasional sin correo' : 'Sin correo');
   const accessKey = sriInvoice?.accessKey ?? 'Se generará al crear el borrador';
   const hasXml = Boolean(sriInvoice?.xmlPath);
+  const hasRide = Boolean(sriInvoice?.ridePath);
   const steps = [
     {
       label: 'Validar datos tributarios',
@@ -1220,6 +1221,35 @@ function SriInvoiceAssistantModal({
         error instanceof Error
           ? error.message
           : 'No fue posible generar el XML de la factura.',
+      );
+    } finally {
+      setIsWorking(false);
+    }
+  };
+
+  const generateRide = async () => {
+    setIsWorking(true);
+    setActionError(null);
+    try {
+      const draft = sriInvoice;
+      if (!draft) {
+        setActionError('Primero crea el borrador SRI.');
+        return;
+      }
+      if (!draft.xmlPath) {
+        setActionError('Primero genera el XML antes de crear el RIDE/PDF demo.');
+        return;
+      }
+      const generated = await request<SriInvoice>(
+        `/sri-invoices/${draft.id}/generate-ride`,
+        { method: 'POST' },
+      );
+      onInvoiceChange(generated);
+    } catch (error) {
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : 'No fue posible generar el RIDE/PDF demo.',
       );
     } finally {
       setIsWorking(false);
@@ -1335,6 +1365,11 @@ function SriInvoiceAssistantModal({
                       XML: {sriInvoice.xmlPath}
                     </p>
                   )}
+                  {sriInvoice?.ridePath && (
+                    <p className="mt-3 break-all text-xs font-semibold text-emerald-700">
+                      RIDE/PDF: {sriInvoice.ridePath}
+                    </p>
+                  )}
                   {sriInvoice?.sriMessage && (
                     <p className="mt-2 text-xs leading-5 text-slate-500">
                       {sriInvoice.sriMessage}
@@ -1347,14 +1382,15 @@ function SriInvoiceAssistantModal({
               {steps.map((step, index) => {
                 const Icon = step.icon;
                 const completed =
-                  isAuthorized ||
                   (index === 0 && Boolean(sriInvoice)) ||
-                  (index === 1 && hasXml);
+                  (index === 1 && hasXml) ||
+                  (index >= 2 && index <= 4 && isAuthorized) ||
+                  (index === 5 && hasRide);
                 const active =
-                  !isAuthorized &&
-                  ((!sriInvoice && index === 0) ||
+                  (!sriInvoice && index === 0) ||
                     (sriInvoice && !hasXml && index === 1) ||
-                    (hasXml && index === 2));
+                    (hasXml && !isAuthorized && index === 2) ||
+                    (isAuthorized && !hasRide && index === 5);
                 return (
                   <div
                     key={step.label}
@@ -1447,11 +1483,16 @@ function SriInvoiceAssistantModal({
               </Button>
             )}
             <Button
-              disabled={!isAuthorized}
+              onClick={() => void generateRide()}
+              disabled={isWorking || !hasXml || hasRide}
               className="border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              <Download className="size-4" />
-              RIDE/PDF demo
+              {isWorking ? (
+                <LoaderCircle className="size-4 animate-spin" />
+              ) : (
+                <Download className="size-4" />
+              )}
+              {hasRide ? 'RIDE/PDF listo' : 'Generar RIDE/PDF'}
             </Button>
             <Button
               onClick={() => void authorizeDemo()}

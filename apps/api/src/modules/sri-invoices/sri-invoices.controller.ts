@@ -50,4 +50,10 @@ export class SriInvoicesController {
   generateXml(@Param('id', ParseUUIDPipe) sriInvoiceId: string) {
     return this.sriInvoicesService.generateXml(sriInvoiceId);
   }
+
+  @Post(':id/generate-ride')
+  @RequirePermissions(PERMISSIONS.PAYMENTS_MANAGE)
+  generateRide(@Param('id', ParseUUIDPipe) sriInvoiceId: string) {
+    return this.sriInvoicesService.generateRide(sriInvoiceId);
+  }
 }
