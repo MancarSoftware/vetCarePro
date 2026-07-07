@@ -107,10 +107,14 @@ export class SriInvoicesService {
     const clinic = await this.getClinicSettings();
     this.validateSriSettings(clinic);
     const sequential = await this.nextSequential(clinic.sri.sequential);
-    const customerDocument =
-      payment.walkInCustomerDocument ||
-      payment.owner.nationalId ||
-      '9999999999999';
+    const customerName =
+      payment.walkInCustomerName ||
+      `${payment.owner.firstName} ${payment.owner.lastName}`;
+    const customerDocument = this.resolveSriCustomerDocument(
+      payment.walkInCustomerDocument || payment.owner.nationalId,
+    );
+    this.validateSriCustomer(customerName, customerDocument);
+
     const created = await this.prisma.sriInvoice.create({
       data: {
         paymentId,
@@ -126,9 +130,7 @@ export class SriInvoicesService {
           clinic.sri.emissionPoint,
           sequential,
         ),
-        customerName:
-          payment.walkInCustomerName ||
-          `${payment.owner.firstName} ${payment.owner.lastName}`,
+        customerName,
         customerDocument,
         customerEmail: payment.owner.email,
         status: SriInvoiceStatus.DRAFT,
@@ -674,6 +676,9 @@ export class SriInvoicesService {
     if (!clinic.legalName.trim()) missing.push('razon social');
     if (clinic.taxIdType !== 'RUC') missing.push('tipo de identificacion RUC');
     if (!/^\d{13}$/.test(ruc)) missing.push('RUC de 13 digitos');
+    if (/^\d{13}$/.test(ruc) && !this.isValidEcuadorRuc(ruc)) {
+      missing.push('RUC valido con digito verificador');
+    }
     if (!clinic.address.trim()) missing.push('direccion matriz');
     if (!/^\d{3}$/.test(clinic.sri.establishmentCode)) {
       missing.push('codigo de establecimiento');
@@ -690,6 +695,98 @@ export class SriInvoicesService {
         `Configura los datos tributarios antes de emitir: ${missing.join(', ')}.`,
       );
     }
+  }
+
+  private resolveSriCustomerDocument(document: string | null | undefined) {
+    const digits = String(document ?? '').replace(/\D/g, '');
+    return digits || '9999999999999';
+  }
+
+  private validateSriCustomer(customerName: string, customerDocument: string) {
+    const errors: string[] = [];
+    const document = customerDocument.replace(/\D/g, '');
+
+    if (!customerName.trim()) {
+      errors.push('nombre o razon social del comprador');
+    }
+
+    if (document === '9999999999999') {
+      if (errors.length > 0) {
+        throw new BadRequestException(
+          `No se puede emitir factura SRI: ${errors.join(', ')}.`,
+        );
+      }
+      return;
+    }
+
+    if (!/^\d{10}$|^\d{13}$/.test(document)) {
+      errors.push('identificacion del comprador de 10 digitos o RUC de 13');
+    } else if (document.length === 10 && !this.isValidEcuadorCedula(document)) {
+      errors.push('cedula del comprador invalida');
+    } else if (document.length === 13 && !this.isValidEcuadorRuc(document)) {
+      errors.push('RUC del comprador invalido');
+    }
+
+    if (errors.length > 0) {
+      throw new BadRequestException(
+        `No se puede emitir factura SRI: ${errors.join(', ')}.`,
+      );
+    }
+  }
+
+  private isValidEcuadorCedula(document: string) {
+    if (!/^\d{10}$/.test(document)) return false;
+    const province = Number(document.slice(0, 2));
+    const thirdDigit = Number(document[2]);
+    if (!((province >= 1 && province <= 24) || province === 30)) return false;
+    if (thirdDigit >= 6) return false;
+
+    const sum = document
+      .slice(0, 9)
+      .split('')
+      .reduce((total, digit, index) => {
+        let value = Number(digit);
+        if (index % 2 === 0) {
+          value *= 2;
+          if (value > 9) value -= 9;
+        }
+        return total + value;
+      }, 0);
+    const checkDigit = (10 - (sum % 10)) % 10;
+    return checkDigit === Number(document[9]);
+  }
+
+  private isValidEcuadorRuc(document: string) {
+    if (document === '9999999999999') return true;
+    if (!/^\d{13}$/.test(document)) return false;
+    if (!document.endsWith('001')) return false;
+
+    const thirdDigit = Number(document[2]);
+    if (thirdDigit < 6) {
+      return this.isValidEcuadorCedula(document.slice(0, 10));
+    }
+    if (thirdDigit === 6) {
+      return this.isValidModulo11(document, [3, 2, 7, 6, 5, 4, 3, 2], 8);
+    }
+    if (thirdDigit === 9) {
+      return this.isValidModulo11(document, [4, 3, 2, 7, 6, 5, 4, 3, 2], 9);
+    }
+    return false;
+  }
+
+  private isValidModulo11(
+    document: string,
+    coefficients: number[],
+    checkDigitIndex: number,
+  ) {
+    const sum = coefficients.reduce(
+      (total, coefficient, index) => total + Number(document[index]) * coefficient,
+      0,
+    );
+    const remainder = sum % 11;
+    const checkDigit = remainder === 0 ? 0 : 11 - remainder;
+    if (checkDigit === 10) return false;
+    return checkDigit === Number(document[checkDigitIndex]);
   }
 
   private xmlEscape(value: string | number | null | undefined) {

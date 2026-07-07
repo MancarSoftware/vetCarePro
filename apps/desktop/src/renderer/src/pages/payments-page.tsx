@@ -82,6 +82,77 @@ type ApiBlobRequest = (
   options?: ApiRequestOptions,
 ) => Promise<Blob>;
 
+function normalizeSriDocument(document: string | null | undefined) {
+  const digits = String(document ?? '').replace(/\D/g, '');
+  return digits || '9999999999999';
+}
+
+function validateEcuadorCedula(document: string) {
+  if (!/^\d{10}$/.test(document)) return false;
+  const province = Number(document.slice(0, 2));
+  const thirdDigit = Number(document[2]);
+  if (!((province >= 1 && province <= 24) || province === 30)) return false;
+  if (thirdDigit >= 6) return false;
+
+  const sum = document
+    .slice(0, 9)
+    .split('')
+    .reduce((total, digit, index) => {
+      let value = Number(digit);
+      if (index % 2 === 0) {
+        value *= 2;
+        if (value > 9) value -= 9;
+      }
+      return total + value;
+    }, 0);
+  const checkDigit = (10 - (sum % 10)) % 10;
+  return checkDigit === Number(document[9]);
+}
+
+function validateModulo11(
+  document: string,
+  coefficients: number[],
+  checkDigitIndex: number,
+) {
+  const sum = coefficients.reduce(
+    (total, coefficient, index) => total + Number(document[index]) * coefficient,
+    0,
+  );
+  const remainder = sum % 11;
+  const checkDigit = remainder === 0 ? 0 : 11 - remainder;
+  return checkDigit !== 10 && checkDigit === Number(document[checkDigitIndex]);
+}
+
+function validateEcuadorRuc(document: string) {
+  if (document === '9999999999999') return true;
+  if (!/^\d{13}$/.test(document)) return false;
+  if (!document.endsWith('001')) return false;
+
+  const thirdDigit = Number(document[2]);
+  if (thirdDigit < 6) return validateEcuadorCedula(document.slice(0, 10));
+  if (thirdDigit === 6) {
+    return validateModulo11(document, [3, 2, 7, 6, 5, 4, 3, 2], 8);
+  }
+  if (thirdDigit === 9) {
+    return validateModulo11(document, [4, 3, 2, 7, 6, 5, 4, 3, 2], 9);
+  }
+  return false;
+}
+
+function validateSriBuyerDocument(document: string) {
+  if (document === '9999999999999') return [];
+  if (!/^\d{10}$|^\d{13}$/.test(document)) {
+    return ['Usa cedula de 10 digitos, RUC de 13 digitos o consumidor final.'];
+  }
+  if (document.length === 10 && !validateEcuadorCedula(document)) {
+    return ['La cedula no pasa el digito verificador de Ecuador.'];
+  }
+  if (document.length === 13 && !validateEcuadorRuc(document)) {
+    return ['El RUC no pasa el formato tributario de Ecuador.'];
+  }
+  return [];
+}
+
 const statusPresentation: Record<
   PaymentStatus,
   { label: string; className: string; icon: LucideIcon }
@@ -1120,11 +1191,19 @@ function SriInvoiceAssistantModal({
     sriInvoice?.customerName ||
     payment.walkInCustomerName ||
     `${payment.owner.firstName} ${payment.owner.lastName}`;
-  const customerDocument =
+  const rawCustomerDocument =
     sriInvoice?.customerDocument ||
     payment.walkInCustomerDocument ||
-    payment.owner.nationalId ||
-    'Consumidor final';
+    payment.owner.nationalId;
+  const normalizedCustomerDocument = normalizeSriDocument(rawCustomerDocument);
+  const customerDocument =
+    normalizedCustomerDocument === '9999999999999'
+      ? 'Consumidor final (9999999999999)'
+      : normalizedCustomerDocument;
+  const taxValidationIssues = validateSriBuyerDocument(
+    normalizedCustomerDocument,
+  );
+  const hasTaxValidationIssues = taxValidationIssues.length > 0;
   const customerEmail =
     sriInvoice?.customerEmail ||
     payment.owner.email ||
@@ -1294,8 +1373,8 @@ function SriInvoiceAssistantModal({
 
   return (
     <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/55 p-6 backdrop-blur-sm">
-      <Card className="max-h-[94vh] w-full max-w-6xl overflow-hidden">
-        <div className="flex items-start justify-between border-b border-white/10 bg-gradient-to-br from-slate-950 via-teal-950 to-teal-700 p-6 text-white">
+      <Card className="flex max-h-[94vh] w-full max-w-6xl flex-col overflow-hidden">
+        <div className="flex shrink-0 items-start justify-between border-b border-white/10 bg-gradient-to-br from-slate-950 via-teal-950 to-teal-700 p-6 text-white">
           <div className="flex items-start gap-4">
             <div className="grid size-14 shrink-0 place-items-center rounded-2xl bg-white/10 text-teal-100 ring-1 ring-white/20">
               <FileCheck2 className="size-7" />
@@ -1323,7 +1402,7 @@ function SriInvoiceAssistantModal({
           </button>
         </div>
 
-        <div className="max-h-[calc(94vh-184px)] overflow-y-auto p-6">
+        <div className="min-h-0 flex-1 overflow-y-auto p-6">
           {actionError && (
             <p className="mb-4 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">
               {actionError}
@@ -1368,6 +1447,58 @@ function SriInvoiceAssistantModal({
                     <span className="text-lg font-black text-slate-950">
                       {currency.format(payment.amount)}
                     </span>
+                  </div>
+                </div>
+              </Card>
+
+              <Card
+                className={cn(
+                  'p-4 shadow-none',
+                  hasTaxValidationIssues
+                    ? 'border-amber-200 bg-amber-50'
+                    : 'border-emerald-100 bg-emerald-50/70',
+                )}
+              >
+                <div className="flex items-start gap-3">
+                  <div
+                    className={cn(
+                      'grid size-10 shrink-0 place-items-center rounded-xl',
+                      hasTaxValidationIssues
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-emerald-100 text-emerald-700',
+                    )}
+                  >
+                    {hasTaxValidationIssues ? (
+                      <AlertTriangle className="size-5" />
+                    ) : (
+                      <CheckCircle2 className="size-5" />
+                    )}
+                  </div>
+                  <div>
+                    <p
+                      className={cn(
+                        'text-sm font-bold',
+                        hasTaxValidationIssues
+                          ? 'text-amber-900'
+                          : 'text-emerald-900',
+                      )}
+                    >
+                      {hasTaxValidationIssues
+                        ? 'Datos tributarios por corregir'
+                        : 'Datos tributarios listos'}
+                    </p>
+                    {hasTaxValidationIssues ? (
+                      <ul className="mt-2 space-y-1 text-sm leading-6 text-amber-800">
+                        {taxValidationIssues.map((issue) => (
+                          <li key={issue}>• {issue}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-1 text-sm leading-6 text-emerald-800">
+                        La identificacion del comprador esta lista para crear el
+                        borrador SRI demo.
+                      </p>
+                    )}
                   </div>
                 </div>
               </Card>
@@ -1418,12 +1549,13 @@ function SriInvoiceAssistantModal({
               {steps.map((step, index) => {
                 const Icon = step.icon;
                 const completed =
-                  (index === 0 && Boolean(sriInvoice)) ||
+                  (index === 0 && Boolean(sriInvoice || !hasTaxValidationIssues)) ||
                   (index === 1 && hasXml) ||
                   (index >= 2 && index <= 4 && isAuthorized) ||
                   (index === 5 && hasRide);
                 const active =
-                  (!sriInvoice && index === 0) ||
+                  (!sriInvoice && hasTaxValidationIssues && index === 0) ||
+                    (!sriInvoice && !hasTaxValidationIssues && index === 1) ||
                     (sriInvoice && !hasXml && index === 1) ||
                     (hasXml && !isAuthorized && index === 2) ||
                     (isAuthorized && !hasRide && index === 5);
@@ -1432,10 +1564,12 @@ function SriInvoiceAssistantModal({
                     key={step.label}
                     className={cn(
                       'flex items-center gap-4 rounded-2xl border p-4 transition',
-                      completed
-                        ? 'border-emerald-100 bg-emerald-50/70'
+                        completed
+                          ? 'border-emerald-100 bg-emerald-50/70'
                         : active
-                          ? 'border-teal-200 bg-teal-50'
+                          ? hasTaxValidationIssues && index === 0
+                            ? 'border-amber-200 bg-amber-50'
+                            : 'border-teal-200 bg-teal-50'
                           : 'border-slate-200 bg-white',
                     )}
                   >
@@ -1444,8 +1578,10 @@ function SriInvoiceAssistantModal({
                         'grid size-11 shrink-0 place-items-center rounded-xl',
                         completed
                           ? 'bg-emerald-100 text-emerald-700'
-                          : active
-                            ? 'bg-teal-100 text-teal-700'
+                        : active
+                            ? hasTaxValidationIssues && index === 0
+                              ? 'bg-amber-100 text-amber-700'
+                              : 'bg-teal-100 text-teal-700'
                             : 'bg-slate-100 text-slate-400',
                       )}
                     >
@@ -1461,12 +1597,20 @@ function SriInvoiceAssistantModal({
                       className={cn(
                         completed
                           ? 'bg-emerald-100 text-emerald-700'
-                          : active
-                            ? 'bg-teal-100 text-teal-700'
+                        : active
+                            ? hasTaxValidationIssues && index === 0
+                              ? 'bg-amber-100 text-amber-700'
+                              : 'bg-teal-100 text-teal-700'
                             : 'bg-slate-100 text-slate-500',
                       )}
                     >
-                      {completed ? 'Listo' : active ? 'Siguiente' : 'Pendiente'}
+                      {completed
+                        ? 'Listo'
+                        : active && hasTaxValidationIssues && index === 0
+                          ? 'Revisar'
+                          : active
+                            ? 'Siguiente'
+                            : 'Pendiente'}
                     </Badge>
                   </div>
                 );
@@ -1475,7 +1619,7 @@ function SriInvoiceAssistantModal({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4">
           <p className="max-w-xl text-xs leading-5 text-slate-500">
             Demo visual local. La integración real necesitará RUC, firma
             electrónica, ambiente de pruebas/producción SRI, secuenciales y
@@ -1493,7 +1637,7 @@ function SriInvoiceAssistantModal({
             {!sriInvoice && (
               <Button
                 onClick={() => void createDraft()}
-                disabled={isWorking}
+                disabled={isWorking || hasTaxValidationIssues}
                 className="border border-teal-200 bg-white text-teal-700 hover:bg-teal-50"
               >
                 {isWorking ? (
