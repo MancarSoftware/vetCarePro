@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Get,
   NotFoundException,
@@ -15,6 +16,7 @@ import { RequirePermissions } from '../../common/decorators/require-permissions.
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { PERMISSIONS } from '../auth/authorization.constants';
+import { CreateSriInvoiceFromPaymentDto } from './dto/create-sri-invoice-from-payment.dto';
 import { SriInvoicesService } from './sri-invoices.service';
 
 @Controller('sri-invoices')
@@ -37,8 +39,9 @@ export class SriInvoicesController {
   createFromPayment(
     @CurrentUser() actor: AuthenticatedUser,
     @Param('paymentId', ParseUUIDPipe) paymentId: string,
+    @Body() dto: CreateSriInvoiceFromPaymentDto,
   ) {
-    return this.sriInvoicesService.createFromPayment(actor.id, paymentId);
+    return this.sriInvoicesService.createFromPayment(actor.id, paymentId, dto);
   }
 
   @Post(':id/demo-authorize')

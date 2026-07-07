@@ -16,6 +16,7 @@ import {
   ClinicSettings,
   mergeClinicSettings,
 } from '../settings/settings-defaults';
+import { CreateSriInvoiceFromPaymentDto } from './dto/create-sri-invoice-from-payment.dto';
 
 const sriInvoiceInclude = {
   payment: {
@@ -75,12 +76,62 @@ export class SriInvoicesService {
     return invoice ? this.response(invoice) : null;
   }
 
-  async createFromPayment(actorId: string, paymentId: string) {
+  async createFromPayment(
+    actorId: string,
+    paymentId: string,
+    dto: CreateSriInvoiceFromPaymentDto = {},
+  ) {
     const existing = await this.prisma.sriInvoice.findUnique({
       where: { paymentId },
       include: sriInvoiceInclude,
     });
     if (existing) {
+      if (this.hasBuyerOverrides(dto)) {
+        if (existing.status !== SriInvoiceStatus.DRAFT) {
+          throw new BadRequestException(
+            'Los datos tributarios solo se pueden corregir antes de generar el XML',
+          );
+        }
+        const customerName =
+          this.optionalText(dto.customerName) ?? existing.customerName;
+        const customerDocument =
+          dto.customerDocument !== undefined
+            ? this.resolveSriCustomerDocument(dto.customerDocument)
+            : existing.customerDocument;
+        const customerEmail =
+          dto.customerEmail !== undefined
+            ? this.optionalText(dto.customerEmail)?.toLowerCase() ?? null
+            : existing.customerEmail;
+        this.validateSriCustomer(customerName, customerDocument);
+
+        const updated = await this.prisma.sriInvoice.update({
+          where: { id: existing.id },
+          data: {
+            customerName,
+            customerDocument,
+            customerEmail,
+            sriMessage:
+              'Datos tributarios del comprador actualizados. Borrador SRI demo listo.',
+          },
+          include: sriInvoiceInclude,
+        });
+
+        await this.prisma.auditLog.create({
+          data: {
+            actorId,
+            action: 'UPDATE',
+            entityType: 'SriInvoice',
+            entityId: updated.id,
+            changes: {
+              customerName,
+              customerDocument,
+              customerEmail,
+            },
+          },
+        });
+
+        return this.response(updated);
+      }
       return this.response(existing);
     }
 
@@ -108,11 +159,18 @@ export class SriInvoicesService {
     this.validateSriSettings(clinic);
     const sequential = await this.nextSequential(clinic.sri.sequential);
     const customerName =
+      this.optionalText(dto.customerName) ||
       payment.walkInCustomerName ||
       `${payment.owner.firstName} ${payment.owner.lastName}`;
     const customerDocument = this.resolveSriCustomerDocument(
-      payment.walkInCustomerDocument || payment.owner.nationalId,
+      dto.customerDocument ||
+        payment.walkInCustomerDocument ||
+        payment.owner.nationalId,
     );
+    const customerEmail =
+      dto.customerEmail !== undefined
+        ? this.optionalText(dto.customerEmail)?.toLowerCase() ?? null
+        : payment.owner.email;
     this.validateSriCustomer(customerName, customerDocument);
 
     const created = await this.prisma.sriInvoice.create({
@@ -132,7 +190,7 @@ export class SriInvoicesService {
         ),
         customerName,
         customerDocument,
-        customerEmail: payment.owner.email,
+        customerEmail,
         status: SriInvoiceStatus.DRAFT,
         sriMessage:
           'Demo local: factura creada como borrador. No enviada al SRI.',
@@ -700,6 +758,19 @@ export class SriInvoicesService {
   private resolveSriCustomerDocument(document: string | null | undefined) {
     const digits = String(document ?? '').replace(/\D/g, '');
     return digits || '9999999999999';
+  }
+
+  private optionalText(value: string | null | undefined) {
+    const text = value?.trim();
+    return text || undefined;
+  }
+
+  private hasBuyerOverrides(dto: CreateSriInvoiceFromPaymentDto) {
+    return (
+      dto.customerName !== undefined ||
+      dto.customerDocument !== undefined ||
+      dto.customerEmail !== undefined
+    );
   }
 
   private validateSriCustomer(customerName: string, customerDocument: string) {

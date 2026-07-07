@@ -153,6 +153,12 @@ function validateSriBuyerDocument(document: string) {
   return [];
 }
 
+type SriBuyerForm = {
+  customerName: string;
+  customerDocument: string;
+  customerEmail: string;
+};
+
 const statusPresentation: Record<
   PaymentStatus,
   { label: string; className: string; icon: LucideIcon }
@@ -1187,30 +1193,87 @@ function SriInvoiceAssistantModal({
   const [isWorking, setIsWorking] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const isAuthorized = sriInvoice?.status === 'AUTHORIZED';
-  const customerName =
+  const defaultCustomerName =
     sriInvoice?.customerName ||
     payment.walkInCustomerName ||
     `${payment.owner.firstName} ${payment.owner.lastName}`;
-  const rawCustomerDocument =
+  const defaultCustomerDocument =
     sriInvoice?.customerDocument ||
     payment.walkInCustomerDocument ||
     payment.owner.nationalId;
-  const normalizedCustomerDocument = normalizeSriDocument(rawCustomerDocument);
+  const defaultCustomerEmail =
+    sriInvoice?.customerEmail || payment.owner.email || '';
+  const [buyerForm, setBuyerForm] = useState<SriBuyerForm>(() => ({
+    customerName: defaultCustomerName,
+    customerDocument: normalizeSriDocument(defaultCustomerDocument),
+    customerEmail: defaultCustomerEmail,
+  }));
+  const canEditSriBuyer = !sriInvoice || sriInvoice.status === 'DRAFT';
+  const customerName = buyerForm.customerName.trim();
+  const normalizedCustomerDocument = normalizeSriDocument(
+    buyerForm.customerDocument,
+  );
   const customerDocument =
     normalizedCustomerDocument === '9999999999999'
       ? 'Consumidor final (9999999999999)'
       : normalizedCustomerDocument;
-  const taxValidationIssues = validateSriBuyerDocument(
-    normalizedCustomerDocument,
-  );
+  const taxValidationIssues = [
+    ...(customerName ? [] : ['Ingresa el nombre o razon social del comprador.']),
+    ...validateSriBuyerDocument(normalizedCustomerDocument),
+  ];
   const hasTaxValidationIssues = taxValidationIssues.length > 0;
   const customerEmail =
-    sriInvoice?.customerEmail ||
-    payment.owner.email ||
+    buyerForm.customerEmail.trim() ||
     (payment.walkInCustomerName ? 'Cliente ocasional sin correo' : 'Sin correo');
   const accessKey = sriInvoice?.accessKey ?? 'Se generará al crear el borrador';
   const hasXml = Boolean(sriInvoice?.xmlPath);
   const hasRide = Boolean(sriInvoice?.ridePath);
+
+  useEffect(() => {
+    setBuyerForm({
+      customerName: defaultCustomerName,
+      customerDocument: normalizeSriDocument(defaultCustomerDocument),
+      customerEmail: defaultCustomerEmail,
+    });
+  }, [
+    defaultCustomerDocument,
+    defaultCustomerEmail,
+    defaultCustomerName,
+    payment.id,
+    sriInvoice?.id,
+  ]);
+
+  const updateBuyerForm = (field: keyof SriBuyerForm, value: string) => {
+    setBuyerForm((current) => ({
+      ...current,
+      [field]:
+        field === 'customerDocument'
+          ? value.replace(/\D/g, '').slice(0, 13)
+          : value,
+    }));
+  };
+
+  const useFinalConsumer = () => {
+    setBuyerForm((current) => ({
+      ...current,
+      customerName: current.customerName.trim() || 'Consumidor Final',
+      customerDocument: '9999999999999',
+      customerEmail: '',
+    }));
+  };
+
+  const buyerPayload = () => ({
+    customerName,
+    customerDocument: normalizedCustomerDocument,
+    customerEmail: buyerForm.customerEmail.trim() || undefined,
+  });
+
+  const upsertSriDraft = () =>
+    request<SriInvoice>(`/sri-invoices/payment/${payment.id}`, {
+      method: 'POST',
+      body: buyerPayload(),
+    });
+
   const steps = [
     {
       label: 'Validar datos tributarios',
@@ -1248,10 +1311,11 @@ function SriInvoiceAssistantModal({
     setIsWorking(true);
     setActionError(null);
     try {
-      const created = await request<SriInvoice>(
-        `/sri-invoices/payment/${payment.id}`,
-        { method: 'POST' },
-      );
+      if (hasTaxValidationIssues) {
+        setActionError('Corrige los datos tributarios antes de crear el borrador.');
+        return null;
+      }
+      const created = await upsertSriDraft();
       onInvoiceChange(created);
       return created;
     } catch (error) {
@@ -1299,8 +1363,16 @@ function SriInvoiceAssistantModal({
     setIsWorking(true);
     setActionError(null);
     try {
-      const draft = sriInvoice ?? (await createDraft());
+      if (hasTaxValidationIssues) {
+        setActionError('Corrige los datos tributarios antes de generar el XML.');
+        return;
+      }
+      const draft =
+        sriInvoice && canEditSriBuyer
+          ? await upsertSriDraft()
+          : sriInvoice ?? (await upsertSriDraft());
       if (!draft) return;
+      onInvoiceChange(draft);
       const generated = await request<SriInvoice>(
         `/sri-invoices/${draft.id}/generate-xml`,
         { method: 'POST' },
@@ -1451,6 +1523,74 @@ function SriInvoiceAssistantModal({
                 </div>
               </Card>
 
+              <Card className="border-slate-200 p-5 shadow-none">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-bold text-slate-900">
+                      Datos tributarios del comprador
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                      Estos datos se guardan solo en la factura SRI. No cambian
+                      la ficha del dueño ni el cobro original.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={useFinalConsumer}
+                    disabled={!canEditSriBuyer || isWorking}
+                    className="border border-teal-200 bg-white text-teal-700 hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Consumidor final
+                  </Button>
+                </div>
+                <div className="mt-4 grid gap-3 md:grid-cols-[1fr_160px]">
+                  <label className="text-xs font-bold text-slate-600">
+                    Nombre / razón social
+                    <input
+                      value={buyerForm.customerName}
+                      onChange={(event) =>
+                        updateBuyerForm('customerName', event.target.value)
+                      }
+                      disabled={!canEditSriBuyer || isWorking}
+                      className={`${clinicalInputClass} mt-2`}
+                      placeholder="Nombre del comprador"
+                    />
+                  </label>
+                  <label className="text-xs font-bold text-slate-600">
+                    Cédula / RUC
+                    <input
+                      value={buyerForm.customerDocument}
+                      onChange={(event) =>
+                        updateBuyerForm('customerDocument', event.target.value)
+                      }
+                      disabled={!canEditSriBuyer || isWorking}
+                      className={`${clinicalInputClass} mt-2`}
+                      inputMode="numeric"
+                      maxLength={13}
+                      placeholder="10 o 13 dígitos"
+                    />
+                  </label>
+                  <label className="text-xs font-bold text-slate-600 md:col-span-2">
+                    Correo electrónico opcional
+                    <input
+                      value={buyerForm.customerEmail}
+                      onChange={(event) =>
+                        updateBuyerForm('customerEmail', event.target.value)
+                      }
+                      disabled={!canEditSriBuyer || isWorking}
+                      className={`${clinicalInputClass} mt-2`}
+                      placeholder="cliente@correo.com"
+                    />
+                  </label>
+                </div>
+                {!canEditSriBuyer && (
+                  <p className="mt-3 rounded-xl bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-500">
+                    Los datos tributarios ya no se pueden editar porque la
+                    factura dejó de estar en borrador.
+                  </p>
+                )}
+              </Card>
+
               <Card
                 className={cn(
                   'p-4 shadow-none',
@@ -1490,7 +1630,7 @@ function SriInvoiceAssistantModal({
                     {hasTaxValidationIssues ? (
                       <ul className="mt-2 space-y-1 text-sm leading-6 text-amber-800">
                         {taxValidationIssues.map((issue) => (
-                          <li key={issue}>• {issue}</li>
+                          <li key={issue}>- {issue}</li>
                         ))}
                       </ul>
                     ) : (
@@ -1651,7 +1791,7 @@ function SriInvoiceAssistantModal({
             {sriInvoice && !hasXml && (
               <Button
                 onClick={() => void generateXml()}
-                disabled={isWorking}
+                disabled={isWorking || hasTaxValidationIssues}
                 className="border border-teal-200 bg-white text-teal-700 hover:bg-teal-50"
               >
                 {isWorking ? (
